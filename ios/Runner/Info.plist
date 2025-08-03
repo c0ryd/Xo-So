@@ -46,6 +46,6 @@
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>This app needs camera access to take pictures.</string>
+	<string>This app needs camera access to scan lottery tickets with OCR.</string>
 </dict>
 </plist>
