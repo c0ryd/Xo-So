@@ -7,11 +7,21 @@ import 'dart:typed_data';
 import 'dart:io';
 import 'dart:convert';
 import 'package:path_provider/path_provider.dart';
+import 'package:http/http.dart' as http;
+import 'package:timezone/timezone.dart' as tz;
+import 'package:timezone/data/latest.dart' as tz;
+import 'package:intl/intl.dart';
+import 'package:amazon_cognito_identity_dart_2/cognito.dart';
+import 'package:amazon_cognito_identity_dart_2/sig_v4.dart';
 
 late List<CameraDescription> cameras;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize timezone data
+  tz.initializeTimeZones();
+  
   cameras = await availableCameras();
   runApp(MyApp());
 }
@@ -106,6 +116,18 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
   // Cities data loaded from JSON
   Map<String, dynamic> _citiesData = {};
   List<String> _allCities = [];
+  
+  // Winner checking state
+  bool _isCheckingWinner = false;
+  bool? _isWinner;
+  int? _winAmount;
+  List<String>? _matchedTiers;
+  String? _winnerCheckError;
+  
+  // AWS configuration
+  static const String identityPoolId = 'us-east-1:1760d4fe-571e-483d-8575-ab98071244ca';
+  static const String awsRegion = 'us-east-1';
+  static const String lambdaRegion = 'ap-southeast-1';
 
   @override
   void initState() {
@@ -166,7 +188,7 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
     // Initialize camera if not already done
     if (_cameraController == null || !_cameraController!.value.isInitialized) {
       await _initializeCamera();
-      if (_cameraController == null || !_cameraController!.value.isInitialized) {
+    if (_cameraController == null || !_cameraController!.value.isInitialized) {
         return;
       }
       // Return here to let user see camera preview before taking picture
@@ -196,10 +218,10 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
           await Future.delayed(Duration(milliseconds: 200)); // Let exposure settle
           
           print('Taking shot ${i + 1}/3 with exposure ${exposureOffsets[i]}');
-          
-          // Take picture
-          final XFile picture = await _cameraController!.takePicture();
-          
+
+      // Take picture
+      final XFile picture = await _cameraController!.takePicture();
+      
           // Save the first captured image path for display
           if (i == 1) { // Use the normal exposure image for display
             _capturedImagePath = picture.path;
@@ -233,7 +255,18 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
         isProcessing = false;
         // Close camera after taking photos
         _isCameraInitialized = false;
+        
+        // Reset winner checking state
+        _isWinner = null;
+        _winAmount = null;
+        _matchedTiers = null;
+        _winnerCheckError = null;
       });
+      
+      // Check if we should call the winner checking API
+      if (city != 'Not found' && date != 'Not found' && ticketNumber != 'Not found') {
+        await _checkWinnerIfEligible();
+      }
       
       // Dispose of camera controller
       _cameraController?.dispose();
@@ -281,7 +314,7 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
         final timestamp = DateTime.now().millisecondsSinceEpoch;
         final tempFile = File('${tempDir.path}/lottery_${timestamp}.jpg');
         await tempFile.writeAsBytes(img.encodeJpg(rotatedImage, quality: 95));
-        
+
         // Process with ML Kit
         final inputImage = InputImage.fromFilePath(tempFile.path);
         final recognizedText = await _textRecognizer.processImage(inputImage);
@@ -571,6 +604,208 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
     
     return 'Not found';
   }
+  
+  // Check if ticket should be checked for winning (date/time logic)
+  Future<void> _checkWinnerIfEligible() async {
+    if (!_shouldCheckWinner()) {
+      print('Ticket not eligible for winner checking yet');
+      return;
+    }
+    
+    await _checkWinner();
+  }
+  
+  bool _shouldCheckWinner() {
+    if (date == 'Not found') return false;
+    
+    try {
+      // Parse the ticket date (expected format: DD-MM-YYYY)
+      final dateParts = date.split('-');
+      if (dateParts.length != 3) return false;
+      
+      final ticketDate = DateTime(
+        int.parse(dateParts[2]), // year
+        int.parse(dateParts[1]), // month
+        int.parse(dateParts[0])  // day
+      );
+      
+      // Get current Vietnam time
+      final vietnamLocation = tz.getLocation('Asia/Ho_Chi_Minh');
+      final now = tz.TZDateTime.now(vietnamLocation);
+      final today = DateTime(now.year, now.month, now.day);
+      
+      // Check if ticket date is before today
+      if (ticketDate.isBefore(today)) {
+        return true;
+      }
+      
+      // Check if ticket date is today and current time is after 4:15 PM
+      if (ticketDate.isAtSameMomentAs(today)) {
+        final cutoffTime = DateTime(now.year, now.month, now.day, 16, 15); // 4:15 PM
+        return now.isAfter(cutoffTime);
+      }
+      
+      return false;
+    } catch (e) {
+      print('Error parsing date for winner check: $e');
+      return false;
+    }
+  }
+  
+  Future<CognitoCredentials> _getAwsCredentials() async {
+    try {
+      // Create a dummy user pool with properly formatted values for unauthenticated access
+      // These values won't be used since we're not authenticating, but they need proper format
+      final userPool = CognitoUserPool(
+        'us-east-1_dummy12345', // Proper user pool ID format
+        'dummy1234567890abcdef1234567890' // Proper client ID format
+      );
+      
+      // Create CognitoCredentials for unauthenticated access using Identity Pool
+      final credentials = CognitoCredentials(identityPoolId, userPool);
+      
+      // Get AWS credentials for unauthenticated access (pass null for unauthenticated)
+      await credentials.getAwsCredentials(null);
+      
+      print('=== DEBUG CREDENTIALS FOR LOCAL TESTING ===');
+      print('Access Key: ${credentials.accessKeyId}');
+      print('Secret Key: ${credentials.secretAccessKey}');
+      print('Session Token (FULL): ${credentials.sessionToken}');
+      print('============================');
+      
+      return credentials;
+    } catch (e) {
+      throw Exception('AWS authentication failed: $e');
+    }
+  }
+
+  Future<void> _checkWinner() async {
+    setState(() {
+      _isCheckingWinner = true;
+      _winnerCheckError = null;
+    });
+    
+    try {
+      final region = _getRegionForCity(city);
+      if (region == null) {
+        throw Exception('Cannot determine region for city: $city');
+      }
+      
+      // Convert date to YYYY-MM-DD format for API
+      final apiDate = _convertDateToApiFormat(date);
+      if (apiDate == null) {
+        throw Exception('Invalid date format: $date');
+      }
+      
+      final payload = {
+        'ticket': ticketNumber,
+        'province': city,
+        'date': apiDate,
+        'region': region,
+      };
+      
+      print('Calling winner API with payload: $payload');
+      
+      // Get AWS credentials using proper Cognito SDK
+      final credentials = await _getAwsCredentials();
+      
+      // Using API Gateway HTTP API endpoint (base URL without the path)
+      final apiGatewayUrl = 'https://nt1f2gqrh4.execute-api.ap-southeast-1.amazonaws.com/Production';
+      
+      final awsSigV4Client = AwsSigV4Client(
+        credentials.accessKeyId!,
+        credentials.secretAccessKey!,
+        apiGatewayUrl,
+        sessionToken: credentials.sessionToken!,
+        region: lambdaRegion,
+      );
+      
+      // Create signed request using the AWS SDK (designed for API Gateway)
+      final signedRequest = SigV4Request(
+        awsSigV4Client,
+        method: 'POST',
+        path: '/check_results',
+        headers: {'Content-Type': 'application/json'},
+        body: payload,
+      );
+      
+      print('Making signed request to: ${signedRequest.url}');
+      print('Request body: ${signedRequest.body}');
+      print('Request headers: ${signedRequest.headers}');
+      
+      // Make the authenticated HTTP request
+      final response = await http.post(
+        Uri.parse(signedRequest.url!),
+        headers: signedRequest.headers?.cast<String, String>(),
+        body: signedRequest.body,
+      );
+      
+      print('Winner API response: ${response.statusCode} - ${response.body}');
+      
+      if (response.statusCode == 200) {
+        // API Gateway returns the Lambda response body directly, not wrapped
+        final responseData = json.decode(response.body);
+        
+        setState(() {
+          _isWinner = responseData['Winner'] as bool;
+          _winAmount = responseData['Sum'] as int?;
+          _matchedTiers = (responseData['MatchedTiers'] as List?)?.cast<String>();
+          _isCheckingWinner = false;
+        });
+      } else {
+        throw Exception('API returned ${response.statusCode}: ${response.body}');
+      }
+      
+    } catch (e) {
+      print('Error checking winner: $e');
+      setState(() {
+        _winnerCheckError = e.toString();
+        _isCheckingWinner = false;
+      });
+    }
+  }
+  
+  String? _getRegionForCity(String cityName) {
+    if (_citiesData.isEmpty) return null;
+    
+    for (final region in _citiesData['regions']) {
+      final cities = region['cities'] as List;
+      if (cities.contains(cityName)) {
+        final englishName = region['english_name'] as String;
+        // Convert to the format expected by the API
+        switch (englishName.toLowerCase()) {
+          case 'northern':
+            return 'north';
+          case 'central':
+            return 'central';
+          case 'southern':
+            return 'south';
+          default:
+            return englishName.toLowerCase();
+        }
+      }
+    }
+    
+    // Fallback for special cases
+    if (cityName.contains('Hồ Chí Minh') || cityName.contains('TP.')) {
+      return 'south';
+    }
+    
+    return null;
+  }
+  
+  String? _convertDateToApiFormat(String dateStr) {
+    try {
+      // Convert DD-MM-YYYY to YYYY-MM-DD
+      final parts = dateStr.split('-');
+      if (parts.length != 3) return null;
+      
+      return '${parts[2]}-${parts[1].padLeft(2, '0')}-${parts[0].padLeft(2, '0')}';
+    } catch (e) {
+      return null;
+    }
+  }
+
 
   // Check if any critical values are missing
   bool _hasMissingValues() {
@@ -817,7 +1052,7 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
                             print('Focus/exposure setting failed: $e');
                           }
                         },
-                        child: CameraPreview(_cameraController!),
+                  child: CameraPreview(_cameraController!),
                       ),
                       
                       // Lottery ticket overlay frame (no text)
@@ -941,7 +1176,17 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
                             setState(() {
                               rawText = allText;
                               isProcessing = false;
+                              // Reset winner checking state
+                              _isWinner = null;
+                              _winAmount = null;
+                              _matchedTiers = null;
+                              _winnerCheckError = null;
                             });
+                            
+                            // Check winner if all info is available
+                            if (city != 'Not found' && date != 'Not found' && ticketNumber != 'Not found') {
+                              await _checkWinnerIfEligible();
+                            }
                           }
                         },
                         style: ElevatedButton.styleFrom(
@@ -955,7 +1200,7 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
                   ],
                 ],
               ),
-              SizedBox(height: 20),
+            SizedBox(height: 20),
             ],
             
             Text(
@@ -974,6 +1219,154 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
               
               SizedBox(height: 20),
               
+              // Winner checking results
+              if (_isCheckingWinner) ...[
+                Container(
+                  padding: EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.blue[50],
+                    border: Border.all(color: Colors.blue),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      CircularProgressIndicator(),
+                      SizedBox(width: 16),
+                      Expanded(
+                        child: Text(
+                          'Checking if ticket is a winner...',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: 20),
+              ] else if (_isWinner != null) ...[
+                Container(
+                  padding: EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: _isWinner! ? Colors.green[50] : Colors.grey[50],
+                    border: Border.all(
+                      color: _isWinner! ? Colors.green : Colors.grey,
+                      width: 2,
+                    ),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            _isWinner! ? Icons.celebration : Icons.info,
+                            color: _isWinner! ? Colors.green : Colors.grey,
+                            size: 32,
+                          ),
+                          SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              _isWinner! ? '🎉 WINNER! 🎉' : 'Not a Winner',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: _isWinner! ? Colors.green : Colors.grey[700],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (_isWinner!) ...[
+                        SizedBox(height: 12),
+                        Text(
+                          'Congratulations! You have won:',
+                          style: TextStyle(fontSize: 16),
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          '${NumberFormat.currency(locale: 'vi_VN', symbol: '₫').format(_winAmount)}',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green,
+                          ),
+                        ),
+                        if (_matchedTiers != null && _matchedTiers!.isNotEmpty) ...[
+                          SizedBox(height: 8),
+                          Text(
+                            'Matched Tiers: ${_matchedTiers!.join(', ')}',
+                            style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                          ),
+                        ],
+                      ] else ...[
+                        SizedBox(height: 8),
+                        Text(
+                          'This ticket did not match any winning numbers.',
+                          style: TextStyle(fontSize: 16, color: Colors.grey[700]),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                SizedBox(height: 20),
+              ] else if (_winnerCheckError != null) ...[
+                Container(
+                  padding: EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.red[50],
+                    border: Border.all(color: Colors.red),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.error, color: Colors.red),
+                          SizedBox(width: 8),
+                          Text(
+                            'Winner Check Failed',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.red,
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        _winnerCheckError!,
+                        style: TextStyle(fontSize: 14, color: Colors.red[700]),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: 20),
+              ] else if (city != 'Not found' && date != 'Not found' && ticketNumber != 'Not found' && !_shouldCheckWinner()) ...[
+                Container(
+                  padding: EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.orange[50],
+                    border: Border.all(color: Colors.orange),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.schedule, color: Colors.orange),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Winner checking will be available after the draw date or after 4:15 PM Vietnam time on the draw date.',
+                          style: TextStyle(fontSize: 14, color: Colors.orange[700]),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: 20),
+              ],
+              
               if (rawText.isNotEmpty) ...[
                 Text(
                   'RAW OCR TEXT:',
@@ -981,17 +1374,17 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
                 ),
                 SizedBox(height: 8),
                 Container(
-                  width: double.infinity,
+                    width: double.infinity,
                   height: 200, // Fixed height instead of Expanded
-                  padding: EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: SingleChildScrollView(
-                    child: Text(
-                      rawText,
-                      style: TextStyle(fontSize: 12, fontFamily: 'monospace'),
+                    padding: EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: SingleChildScrollView(
+                      child: Text(
+                        rawText,
+                        style: TextStyle(fontSize: 12, fontFamily: 'monospace'),
                     ),
                   ),
                 ),
