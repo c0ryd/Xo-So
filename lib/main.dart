@@ -5,6 +5,7 @@ import 'package:camera/camera.dart';
 import 'package:image/image.dart' as img;
 import 'dart:typed_data';
 import 'dart:io';
+import 'dart:convert';
 import 'package:path_provider/path_provider.dart';
 
 late List<CameraDescription> cameras;
@@ -101,11 +102,34 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
   bool _isCameraInitialized = false;
   String? _capturedImagePath;
   String? _processedImagePath; // Store the cropped/rotated image path
+  
+  // Cities data loaded from JSON
+  Map<String, dynamic> _citiesData = {};
+  List<String> _allCities = [];
 
   @override
   void initState() {
     super.initState();
+    _loadCitiesData();
     // Don't initialize camera automatically - wait for user to click button
+  }
+  
+  Future<void> _loadCitiesData() async {
+    try {
+      final String jsonString = await rootBundle.loadString('assets/cities.json');
+      _citiesData = json.decode(jsonString);
+      
+      // Extract all city names into a flat list
+      _allCities = [];
+      for (final region in _citiesData['regions']) {
+        for (final city in region['cities']) {
+          _allCities.add(city.toString());
+        }
+      }
+      print('Loaded ${_allCities.length} cities from JSON');
+    } catch (e) {
+      print('Error loading cities data: $e');
+    }
   }
 
   @override
@@ -159,30 +183,86 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
         rawText = '';
       });
 
-      // Take picture
-      final XFile picture = await _cameraController!.takePicture();
+      print('=== MULTI-SHOT VOTING STARTED ===');
       
-      // Save the captured image path for display
-      _capturedImagePath = picture.path;
+      // Take 3 pictures with different exposure compensations for better OCR accuracy
+      final List<Map<String, dynamic>> ocrResults = [];
+      final exposureOffsets = [-1.0, 0.0, 1.0]; // Underexposed, normal, overexposed
       
+      for (int i = 0; i < 3; i++) {
+        try {
+          // Set different exposure compensation
+          await _cameraController!.setExposureOffset(exposureOffsets[i]);
+          await Future.delayed(Duration(milliseconds: 200)); // Let exposure settle
+          
+          print('Taking shot ${i + 1}/3 with exposure ${exposureOffsets[i]}');
+          
+          // Take picture
+          final XFile picture = await _cameraController!.takePicture();
+          
+          // Save the first captured image path for display
+          if (i == 1) { // Use the normal exposure image for display
+            _capturedImagePath = picture.path;
+          }
+          
+          // Process this image
+          final processedResult = await _processSingleImage(picture);
+          if (processedResult != null) {
+            ocrResults.add(processedResult);
+          }
+          
+        } catch (e) {
+          print('Error with shot ${i + 1}: $e');
+        }
+      }
+      
+      // Reset exposure to normal
+      await _cameraController!.setExposureOffset(0.0);
+      
+      print('=== VOTING ON ${ocrResults.length} RESULTS ===');
+      
+      // Use voting to determine the best results
+      final votedResults = _voteOnResults(ocrResults);
+      
+      setState(() {
+        city = votedResults['city'] ?? 'Not found';
+        date = votedResults['date'] ?? 'Not found';
+        ticketNumber = votedResults['ticketNumber'] ?? 'Not found';
+        rawText = votedResults['rawText'] ?? '';
+        _processedImagePath = votedResults['imagePath'] ?? '';
+        isProcessing = false;
+        // Close camera after taking photos
+        _isCameraInitialized = false;
+      });
+      
+      // Dispose of camera controller
+      _cameraController?.dispose();
+      _cameraController = null;
+      
+    } catch (e) {
+      print('Error in multi-shot process: $e');
+      setState(() {
+        rawText = 'Error: $e';
+        isProcessing = false;
+      });
+    }
+  }
+  
+  Future<Map<String, dynamic>?> _processSingleImage(XFile picture) async {
+    try {
       // Load and process the image for lottery ticket OCR
       final originalBytes = await picture.readAsBytes();
       final originalImage = img.decodeImage(originalBytes);
       
       if (originalImage != null) {
-        // Calculate crop area based on overlay frame (portrait orientation) - slightly smaller for better focus
+        // Calculate crop area based on overlay frame (portrait orientation)
         final imageWidth = originalImage.width;
         final imageHeight = originalImage.height;
         
-        final frameHeight = (imageHeight * 0.7).round(); // Reduced from 0.75 to 0.7 for better focus
-        final frameWidth = (frameHeight * 0.6).round(); // Reduced from 0.65 to 0.6
+        final frameHeight = (imageHeight * 0.7).round();
+        final frameWidth = (frameHeight * 0.6).round();
         final cropLeft = ((imageWidth - frameWidth) / 2).round();
         final cropTop = ((imageHeight - frameHeight) / 2).round();
-        
-        print('=== CROP INFO ===');
-        print('Original image: ${imageWidth}x${imageHeight}');
-        print('Crop area: ${frameWidth}x${frameHeight} at (${cropLeft}, ${cropTop})');
-        print('=================');
         
         // Crop to the lottery ticket frame area
         final croppedImage = img.copyCrop(
@@ -198,12 +278,10 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
         
         // Save rotated image to temporary file with high quality
         final tempDir = await getTemporaryDirectory();
-        final tempFile = File('${tempDir.path}/rotated_lottery_ticket.jpg');
-        await tempFile.writeAsBytes(img.encodeJpg(rotatedImage, quality: 95)); // Higher quality for better OCR
+        final timestamp = DateTime.now().millisecondsSinceEpoch;
+        final tempFile = File('${tempDir.path}/lottery_${timestamp}.jpg');
+        await tempFile.writeAsBytes(img.encodeJpg(rotatedImage, quality: 95));
         
-        // Save the processed image path for display
-        _processedImagePath = tempFile.path;
-
         // Process with ML Kit
         final inputImage = InputImage.fromFilePath(tempFile.path);
         final recognizedText = await _textRecognizer.processImage(inputImage);
@@ -216,44 +294,183 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
           }
         }
 
-        print('=== RAW OCR TEXT ===');
-        print(allText);
-        print('==================');
-
-        // Parse the lottery ticket info
-        _parseTicketInfo(allText);
-
-        setState(() {
-          rawText = allText;
-          isProcessing = false;
-          // Close camera after taking photo
-          _isCameraInitialized = false;
-        });
+        // Parse the lottery ticket info for this image
+        final parsedInfo = _parseTicketInfoForVoting(allText);
         
-        // Dispose of camera controller
-        _cameraController?.dispose();
-        _cameraController = null;
+        return {
+          'city': parsedInfo['city'],
+          'date': parsedInfo['date'],
+          'ticketNumber': parsedInfo['ticketNumber'],
+          'rawText': allText,
+          'imagePath': tempFile.path,
+          'confidence': _calculateConfidence(parsedInfo)
+        };
       }
     } catch (e) {
-      print('Error taking picture and processing: $e');
-      setState(() {
-        rawText = 'Error: $e';
-        isProcessing = false;
-      });
+      print('Error processing single image: $e');
     }
+    return null;
+  }
+  
+  Map<String, dynamic> _voteOnResults(List<Map<String, dynamic>> results) {
+    if (results.isEmpty) {
+      return {
+        'city': 'Not found',
+        'date': 'Not found', 
+        'ticketNumber': 'Not found',
+        'rawText': 'No valid OCR results',
+        'imagePath': ''
+      };
+    }
+    
+    // Vote on each field independently
+    final cityVotes = <String, int>{};
+    final dateVotes = <String, int>{};
+    final ticketVotes = <String, int>{};
+    
+    String bestImagePath = results[0]['imagePath'] ?? '';
+    double bestOverallConfidence = 0.0;
+    String combinedRawText = '';
+    
+    for (final result in results) {
+      final city = result['city'] ?? 'Not found';
+      final date = result['date'] ?? 'Not found';
+      final ticket = result['ticketNumber'] ?? 'Not found';
+      final confidence = result['confidence'] ?? 0.0;
+      
+      cityVotes[city] = (cityVotes[city] ?? 0) + 1;
+      dateVotes[date] = (dateVotes[date] ?? 0) + 1;
+      ticketVotes[ticket] = (ticketVotes[ticket] ?? 0) + 1;
+      
+      combinedRawText += '${result['rawText'] ?? ''}\n---\n';
+      
+      // Use the image with highest confidence
+      if (confidence > bestOverallConfidence) {
+        bestOverallConfidence = confidence;
+        bestImagePath = result['imagePath'] ?? '';
+      }
+    }
+    
+    // Get the most voted results
+    final bestCity = _getMostVoted(cityVotes);
+    final bestDate = _getMostVoted(dateVotes);
+    final bestTicket = _getMostVoted(ticketVotes);
+    
+    print('VOTING RESULTS:');
+    print('City: $bestCity (from $cityVotes)');
+    print('Date: $bestDate (from $dateVotes)');
+    print('Ticket: $bestTicket (from $ticketVotes)');
+    
+    return {
+      'city': bestCity,
+      'date': bestDate,
+      'ticketNumber': bestTicket,
+      'rawText': combinedRawText,
+      'imagePath': bestImagePath
+    };
+  }
+  
+  String _getMostVoted(Map<String, int> votes) {
+    if (votes.isEmpty) return 'Not found';
+    
+    // Exclude 'Not found' if there are other options
+    final validVotes = Map<String, int>.from(votes);
+    if (validVotes.length > 1) {
+      validVotes.remove('Not found');
+    }
+    
+    return validVotes.entries
+        .reduce((a, b) => a.value > b.value ? a : b)
+        .key;
+  }
+  
+  double _calculateConfidence(Map<String, dynamic> parsedInfo) {
+    double confidence = 0.0;
+    
+    // Higher confidence for finding more fields
+    if (parsedInfo['city'] != 'Not found') confidence += 0.4;
+    if (parsedInfo['date'] != 'Not found') confidence += 0.3;
+    if (parsedInfo['ticketNumber'] != 'Not found') confidence += 0.3;
+    
+    return confidence;
+  }
+
+  Map<String, dynamic> _parseTicketInfoForVoting(String text) {
+    // Parse and return results for voting system
+    final results = _parseTicketInfoInternal(text);
+    return {
+      'city': results['city'] ?? 'Not found',
+      'date': results['date'] ?? 'Not found',
+      'ticketNumber': results['ticketNumber'] ?? 'Not found'
+    };
   }
 
   void _parseTicketInfo(String text) {
-    // Load all Vietnamese cities and create mapping
-    final cityMappings = {
-      // Major cities with common variations - using Vietnamese names for display
-      'Hồ Chí Minh': ['HO CHI MINH', 'HÓ CHÍ MINH', 'TP HCM', 'TP.HCM', 'TPHCM', 'SAI GON', 'SAIGON', 'CHI MINH', 'CHI MINT', 'CHỈ MINT', 'CHI MIN', 'HỐ CHÍ MIN', 'Ó CHI MINH', 'O CHI MINH'],
+    final results = _parseTicketInfoInternal(text);
+    city = results['city'] ?? 'Not found';
+    date = results['date'] ?? 'Not found';
+    ticketNumber = results['ticketNumber'] ?? 'Not found';
+  }
+  
+  Map<String, dynamic> _parseTicketInfoInternal(String text) {
+    String foundCity = 'Not found';
+    String foundDate = 'Not found';
+    String foundTicketNumber = 'Not found';
+    
+    // Use JSON-based city matching with enhanced OCR variations
+    foundCity = _findCityFromJson(text);
+    
+    // Extract date using various patterns
+    final datePatterns = [
+      RegExp(r'(\d{1,2}[-/]\d{1,2}[-/]\d{4})'), // DD-MM-YYYY or DD/MM/YYYY
+      RegExp(r'(\d{4}[-/]\d{1,2}[-/]\d{1,2})'), // YYYY-MM-DD or YYYY/MM/DD
+      RegExp(r'(\d{1,2}\s*-\s*\d{1,2}\s*-\s*\d{4})'), // DD - MM - YYYY with spaces
+      RegExp(r'Mở ngày\s*(\d{1,2}[-/]\d{1,2}[-/]\d{4})'), // "Mở ngày DD-MM-YYYY"
+    ];
+    
+    for (final pattern in datePatterns) {
+      final match = pattern.firstMatch(text);
+      if (match != null) {
+        foundDate = match.group(1) ?? 'Not found';
+        break;
+      }
+    }
+    
+    // Extract ticket number - look for 6-digit numbers
+    final ticketPatterns = [
+      RegExp(r'\b(\d{6})\b'), // 6-digit number
+      RegExp(r'(\d{6})\s*[A-Z]'), // 6 digits followed by letter
+    ];
+    
+    for (final pattern in ticketPatterns) {
+      final matches = pattern.allMatches(text);
+      if (matches.isNotEmpty) {
+        foundTicketNumber = matches.first.group(1) ?? 'Not found';
+        break;
+      }
+    }
+    
+    return {
+      'city': foundCity,
+      'date': foundDate,
+      'ticketNumber': foundTicketNumber
+    };
+  }
+  
+  String _findCityFromJson(String text) {
+    if (_allCities.isEmpty) {
+      return 'Not found'; // Cities not loaded yet
+    }
+    
+    final upperText = text.toUpperCase();
+    
+    // Create enhanced mappings with OCR variations for cities from JSON
+    final cityVariations = <String, List<String>>{
+      'TP. Hồ Chí Minh': ['HO CHI MINH', 'HÓ CHÍ MINH', 'TP HCM', 'TP.HCM', 'TPHCM', 'SAI GON', 'SAIGON', 'CHI MINH', 'CHI MINT', 'CHỈ MINT', 'CHI MIN', 'HỐ CHÍ MIN', 'Ó CHI MINH', 'O CHI MINH'],
       'Hà Nội': ['HANOI', 'HÀ NỘI', 'HA NOI'],
       'Đà Nẵng': ['DANANG', 'ĐÀ NẴNG', 'DA NANG'],
       'Cần Thơ': ['CAN THO', 'CẦN THƠ'],
       'Hải Phòng': ['HAI PHONG', 'HẢI PHÒNG'],
-      
-      // All cities with proper Vietnamese names and precise matching
       'An Giang': ['AN GIANG'],
       'Bạc Liêu': ['BAC LIEU', 'BẠC LIÊU'],
       'Bến Tre': ['BEN TRE', 'BẾN TRE'],
@@ -261,15 +478,15 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
       'Bình Phước': ['BINH PHUOC', 'BÌNH PHƯỚC'],
       'Bình Thuận': ['BINH THUAN', 'BÌNH THUẬN'],
       'Cà Mau': ['CA MAU', 'CÀ MAU'],
-      'Đà Lạt': ['DALAT', 'ĐÀ LẠT', 'DA LAT'],
       'Đồng Nai': ['DONG NAI', 'ĐỒNG NAI'],
       'Đồng Tháp': ['DONG THAP', 'ĐỒNG THÁP'],
       'Hậu Giang': ['HAU GIANG', 'HẬU GIANG'],
       'Kiên Giang': ['KIEN GIANG', 'KIÊN GIANG'],
+      'Lâm Đồng': ['LAM DONG', 'LÂM ĐỒNG'],
       'Long An': ['LONG AN'],
       'Sóc Trăng': ['SOC TRANG', 'SÓC TRĂNG'],
       'Tây Ninh': ['TAY NINH', 'TÂY NINH'],
-      'Tiền Giang': ['TIEN GIANG', 'TIỀN GIANG', 'TIÊN GIANG'], // Put this before Hau Giang for priority
+      'Tiền Giang': ['TIEN GIANG', 'TIỀN GIANG', 'TIÊN GIANG', 'TIEN CIANG'], // OCR variations for better matching
       'Trà Vinh': ['TRA VINH', 'TRÀ VINH'],
       'Vĩnh Long': ['VINH LONG', 'VĨNH LONG'],
       'Vũng Tàu': ['VUNG TAU', 'VŨNG TÀU'],
@@ -277,112 +494,82 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
       'Nam Định': ['NAM DINH', 'NAM ĐỊNH'],
       'Quảng Ninh': ['QUANG NINH', 'QUẢNG NINH'],
       'Thái Bình': ['THAI BINH', 'THÁI BÌNH'],
+      'Hà Nam': ['HA NAM', 'HÀ NAM'],
+      'Hưng Yên': ['HUNG YEN', 'HƯNG YÊN'],
+      'Vĩnh Phúc': ['VINH PHUC', 'VĨNH PHÚC'],
+      'Ninh Bình': ['NINH BINH', 'NINH BÌNH'],
       'Bình Định': ['BINH DINH', 'BÌNH ĐỊNH'],
       'Đắk Lắk': ['DAK LAK', 'ĐẮK LẮK'],
       'Đắk Nông': ['DAK NONG', 'ĐẮK NÔNG'],
       'Gia Lai': ['GIA LAI'],
-      'Khánh Hòa': ['KHANH HOA', 'KHÁNH HÒA'],
       'Kon Tum': ['KON TUM'],
-      'Ninh Thuận': ['NINH THUAN', 'NINH THUẬN'],
-      'Phú Yên': ['PHU YEN', 'PHÚ YÊN'],
+      'Nghệ An': ['NGHE AN', 'NGHỆ AN'],
+      'Hà Tĩnh': ['HA TINH', 'HÀ TĨNH'],
+      'Quảng Trị': ['QUANG TRI', 'QUẢNG TRỊ'],
       'Quảng Bình': ['QUANG BINH', 'QUẢNG BÌNH'],
+      'Thừa Thiên Huế': ['THUA THIEN HUE', 'THỪA THIÊN HUẾ', 'HUE', 'HUẾ'],
+      'Khánh Hòa': ['KHANH HOA', 'KHÁNH HÒA'],
+      'Phú Yên': ['PHU YEN', 'PHÚ YÊN'],
       'Quảng Nam': ['QUANG NAM', 'QUẢNG NAM'],
       'Quảng Ngãi': ['QUANG NGAI', 'QUẢNG NGÃI'],
-      'Quảng Trị': ['QUANG TRI', 'QUẢNG TRỊ'],
-      'Huế': ['HUE', 'HUẾ'],
     };
 
-    // Extract city using comprehensive mapping and fuzzy matching
-    final upperText = text.toUpperCase();
-    
-    // First try exact matching with special handling for Ho Chi Minh
-    for (final entry in cityMappings.entries) {
+    // First try exact matching with variations
+    for (final entry in cityVariations.entries) {
       final cityName = entry.key;
       final variations = entry.value;
       
       for (final variation in variations) {
         if (upperText.contains(variation)) {
-          city = cityName;
-          break;
+          print('Found exact match: $cityName for variation: $variation');
+          return cityName;
         }
       }
-      if (city != 'Not found') break;
     }
     
     // Special aggressive matching for Ho Chi Minh City variants
-    if (city == 'Not found') {
-      if (upperText.contains('CHI MIN') || 
-          upperText.contains('CHI MINH') || 
-          upperText.contains('CHI MINT') ||
-          upperText.contains('HO CHI') ||
-          upperText.contains('TPHCM') ||
-          (upperText.contains('CHI') && upperText.contains('MIN'))) {
-        city = 'Hồ Chí Minh';
-        print('Special Ho Chi Minh matching found');
-      }
+    if (upperText.contains('CHI MIN') || 
+        upperText.contains('CHI MINH') || 
+        upperText.contains('CHI MINT') ||
+        upperText.contains('HO CHI') ||
+        upperText.contains('TPHCM') ||
+        (upperText.contains('CHI') && upperText.contains('MIN'))) {
+      print('Special Ho Chi Minh matching found');
+      return 'TP. Hồ Chí Minh';
     }
     
-    // If no exact match, try fuzzy matching
-    if (city == 'Not found') {
-      double bestScore = 0.0;
-      String bestMatch = 'Not found';
+    // If no exact match, try fuzzy matching with all JSON cities
+    double bestScore = 0.0;
+    String bestMatch = 'Not found';
+    
+    for (final cityName in _allCities) {
+      final normalizedCity = _normalizeForOCR(cityName);
+      final normalizedText = _normalizeForOCR(upperText);
       
-      for (final entry in cityMappings.entries) {
-        final cityName = entry.key;
-        final variations = entry.value;
-        
-        for (final variation in variations) {
+      final score = _calculateSimilarity(normalizedText, normalizedCity);
+      if (score > bestScore && score > 0.6) { // 60% threshold for matching
+        bestScore = score;
+        bestMatch = cityName;
+      }
+      
+      // Also check variations if they exist
+      if (cityVariations.containsKey(cityName)) {
+        for (final variation in cityVariations[cityName]!) {
           final score = _calculateSimilarity(upperText, variation);
-          if (score > bestScore && score > 0.6) { // Increase threshold to 60% for more precise matching
+          if (score > bestScore && score > 0.6) {
             bestScore = score;
             bestMatch = cityName;
           }
         }
-        
-        // Also check for exact substring matches with higher priority
-        for (final variation in variations) {
-          if (upperText.contains(variation) && variation.length >= 4) { // At least 4 characters for exact match
-            if (bestScore < 1.0) {
-              bestScore = 1.0;
-              bestMatch = cityName;
-            }
-          }
-        }
-      }
-      
-      if (bestMatch != 'Not found') {
-        city = bestMatch;
-        print('Fuzzy matched city: $city (score: ${bestScore.toStringAsFixed(2)})');
       }
     }
-
-    // Extract date (flexible format: D-M-YYYY, DD-MM-YYYY, etc.)
-    final dateRegex = RegExp(r'(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})');
-    final dateMatch = dateRegex.firstMatch(text);
-    if (dateMatch != null) {
-      final day = dateMatch.group(1)!;
-      final month = dateMatch.group(2)!;
-      final year = dateMatch.group(3)!;
-      date = '$day-$month-$year';
-    }
-
-    // Extract ticket number - look for 6-digit patterns
-    final numberRegex = RegExp(r'\b(\d{6})\b');
-    final numberMatches = numberRegex.allMatches(text);
     
-    for (final match in numberMatches) {
-      final number = match.group(1)!;
-      if (!number.startsWith('000') && !number.startsWith('111')) {
-        ticketNumber = number;
-        break;
-      }
+    if (bestMatch != 'Not found') {
+      print('Fuzzy matched city: $bestMatch (score: ${bestScore.toStringAsFixed(2)})');
+      return bestMatch;
     }
-
-    print('=== PARSED RESULTS ===');
-    print('City: $city');
-    print('Date: $date');
-    print('Ticket Number: $ticketNumber');
-    print('=====================');
+    
+    return 'Not found';
   }
 
   // Check if any critical values are missing

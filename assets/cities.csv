@@ -1,41 +1,42 @@
-﻿An Giang
-Bac Lieu
-Ben Tre
-Binh Duong
-Binh Phuoc
-Binh Thuan
-Ca Mau
-Can Tho
-Dalat
-Dong Nai
-Dong Thap
-Hau Giang
-Kien Giang
-Long An
-Soc Trang
-Tay Ninh
-Tien Giang
-Ho Chi Minh
-Tra Vinh
-Vinh Long
-Vung Tau
-Bac Ninh
-Hanoi
-Hai Phong
-Nam Dinh
-Quang Ninh
-Thai Binh
-Binh Dinh
-Danang
-Dak Lak
-Dak Nong
-Gia Lai
-Khanh Hoa
-Kon Tum
-Ninh Thuan
-Phu Yen
-Quang Binh
-Quang Nam
-Quang Ngai
-Quang Tri
-Hue
+﻿Province,code
+An Giang,angi
+Bac Lieu,bali
+Ben Tre,betr
+Binh Duong,bidu
+Binh Phuoc,biph
+Binh Thuan,bith
+Ca Mau,cama
+Can Tho,cath
+Da Lat,dalat
+Dong Nai,dona
+Dong Thap,doth
+Hau Giang,hagi
+Kien Giang,kigi
+Long An,loan
+Soc Trang,sotr
+Tay Ninh,tani
+Tien Giang,tigi
+Ho Chi Minh,tphc
+Tra Vinh,trvi
+Vinh Long,vilo
+Vung Tau,vuta
+Bac Ninh,bani
+Hanoi,hano
+Hai Phong,haph
+Nam Dinh,nadi
+Quang Ninh,quni
+Thai Binh,thbi
+Binh Dinh,bidi
+Da Nang,dana
+Dak Lak,dalak
+Dak Nong,dano
+Gia Lai,gila
+Khanh Hoa,khho
+Kon Tum,kotu
+Ninh Thuan,nith
+Phu Yen,phye
+Quang Binh,qubi
+Quang Nam,quna
+Quang Ngai,qung
+Quang Tri,qutr
+Hue,thth

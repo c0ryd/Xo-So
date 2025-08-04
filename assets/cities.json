@@ -1,0 +1,68 @@
+{
+  "regions": [
+    {
+      "name": "Miền Bắc",
+      "english_name": "Northern",
+      "cities": [
+        "Hà Nội",
+        "Hải Phòng",
+        "Nam Định",
+        "Quảng Ninh",
+        "Bắc Ninh",
+        "Hà Nam",
+        "Hưng Yên",
+        "Thái Bình",
+        "Vĩnh Phúc",
+        "Ninh Bình"
+      ]
+    },
+    {
+      "name": "Miền Trung",
+      "english_name": "Central",
+      "cities": [
+        "Đà Nẵng",
+        "Khánh Hòa",
+        "Phú Yên",
+        "Bình Định",
+        "Quảng Nam",
+        "Quảng Ngãi",
+        "Thừa Thiên Huế",
+        "Đắk Lắk",
+        "Đắk Nông",
+        "Gia Lai",
+        "Kon Tum",
+        "Nghệ An",
+        "Hà Tĩnh",
+        "Quảng Trị",
+        "Quảng Bình"
+      ]
+    },
+    {
+      "name": "Miền Nam",
+      "english_name": "Southern",
+      "cities": [
+        "TP. Hồ Chí Minh",
+        "Cần Thơ",
+        "An Giang",
+        "Bạc Liêu",
+        "Bến Tre",
+        "Bình Dương",
+        "Bình Phước",
+        "Bình Thuận",
+        "Cà Mau",
+        "Đồng Nai",
+        "Đồng Tháp",
+        "Hậu Giang",
+        "Kiên Giang",
+        "Lâm Đồng",
+        "Long An",
+        "Sóc Trăng",
+        "Tây Ninh",
+        "Tiền Giang",
+        "Trà Vinh",
+        "Vĩnh Long",
+        "Vũng Tàu"
+      ]
+    }
+  ]
+}
