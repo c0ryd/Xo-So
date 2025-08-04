@@ -6,6 +6,7 @@ import 'package:image/image.dart' as img;
 import 'dart:typed_data';
 import 'dart:io';
 import 'dart:convert';
+import 'dart:async';
 import 'package:path_provider/path_provider.dart';
 import 'package:http/http.dart' as http;
 import 'package:timezone/timezone.dart' as tz;
@@ -124,6 +125,12 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
   List<String>? _matchedTiers;
   String? _winnerCheckError;
   
+  // Auto-scanning state
+  bool _isAutoScanning = false;
+  int _autoScanAttempts = 0;
+  static const int _maxAutoScanAttempts = 20; // Stop after 20 attempts
+  Timer? _autoScanTimer;
+  
   // AWS configuration
   static const String identityPoolId = 'us-east-1:1760d4fe-571e-483d-8575-ab98071244ca';
   static const String awsRegion = 'us-east-1';
@@ -156,6 +163,7 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
 
   @override
   void dispose() {
+    _autoScanTimer?.cancel();
     _cameraController?.dispose();
     _textRecognizer.close();
     super.dispose();
@@ -697,9 +705,13 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
         throw Exception('Invalid date format: $date');
       }
       
+      // Normalize province name (remove Vietnamese accents for API compatibility)
+      final normalizedProvince = _normalizeProvinceForApi(city);
+      print('Province normalized: "$city" -> "$normalizedProvince"');
+      
       final payload = {
         'ticket': ticketNumber,
-        'province': city,
+        'province': normalizedProvince,
         'date': apiDate,
         'region': region,
       };
@@ -806,10 +818,120 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
     }
   }
 
+  // Remove Vietnamese accents and prefixes for API compatibility
+  String _normalizeProvinceForApi(String province) {
+    // First remove Vietnamese accents
+    String normalized = province
+        .replaceAll('ấ', 'a').replaceAll('ầ', 'a').replaceAll('ẩ', 'a')
+        .replaceAll('ẫ', 'a').replaceAll('ậ', 'a').replaceAll('á', 'a')
+        .replaceAll('à', 'a').replaceAll('ả', 'a').replaceAll('ã', 'a')
+        .replaceAll('ạ', 'a').replaceAll('â', 'a').replaceAll('ă', 'a')
+        .replaceAll('ắ', 'a').replaceAll('ằ', 'a').replaceAll('ẳ', 'a')
+        .replaceAll('ẵ', 'a').replaceAll('ặ', 'a')
+        .replaceAll('é', 'e').replaceAll('è', 'e').replaceAll('ẻ', 'e')
+        .replaceAll('ẽ', 'e').replaceAll('ẹ', 'e').replaceAll('ê', 'e')
+        .replaceAll('ế', 'e').replaceAll('ề', 'e').replaceAll('ể', 'e')
+        .replaceAll('ễ', 'e').replaceAll('ệ', 'e')
+        .replaceAll('í', 'i').replaceAll('ì', 'i').replaceAll('ỉ', 'i')
+        .replaceAll('ĩ', 'i').replaceAll('ị', 'i')
+        .replaceAll('ó', 'o').replaceAll('ò', 'o').replaceAll('ỏ', 'o')
+        .replaceAll('õ', 'o').replaceAll('ọ', 'o').replaceAll('ô', 'o')
+        .replaceAll('ố', 'o').replaceAll('ồ', 'o').replaceAll('ổ', 'o')
+        .replaceAll('ỗ', 'o').replaceAll('ộ', 'o').replaceAll('ơ', 'o')
+        .replaceAll('ớ', 'o').replaceAll('ờ', 'o').replaceAll('ở', 'o')
+        .replaceAll('ỡ', 'o').replaceAll('ợ', 'o')
+        .replaceAll('ú', 'u').replaceAll('ù', 'u').replaceAll('ủ', 'u')
+        .replaceAll('ũ', 'u').replaceAll('ụ', 'u').replaceAll('ư', 'u')
+        .replaceAll('ứ', 'u').replaceAll('ừ', 'u').replaceAll('ử', 'u')
+        .replaceAll('ữ', 'u').replaceAll('ự', 'u')
+        .replaceAll('ý', 'y').replaceAll('ỳ', 'y').replaceAll('ỷ', 'y')
+        .replaceAll('ỹ', 'y').replaceAll('ỵ', 'y')
+        .replaceAll('đ', 'd').replaceAll('Đ', 'D')
+        // Uppercase versions
+        .replaceAll('Ấ', 'A').replaceAll('Ầ', 'A').replaceAll('Ẩ', 'A')
+        .replaceAll('Ẫ', 'A').replaceAll('Ậ', 'A').replaceAll('Á', 'A')
+        .replaceAll('À', 'A').replaceAll('Ả', 'A').replaceAll('Ã', 'A')
+        .replaceAll('Ạ', 'A').replaceAll('Â', 'A').replaceAll('Ă', 'A')
+        .replaceAll('Ắ', 'A').replaceAll('Ằ', 'A').replaceAll('Ẳ', 'A')
+        .replaceAll('Ẵ', 'A').replaceAll('Ặ', 'A')
+        .replaceAll('É', 'E').replaceAll('È', 'E').replaceAll('Ẻ', 'E')
+        .replaceAll('Ẽ', 'E').replaceAll('Ẹ', 'E').replaceAll('Ê', 'E')
+        .replaceAll('Ế', 'E').replaceAll('Ề', 'E').replaceAll('Ể', 'E')
+        .replaceAll('Ễ', 'E').replaceAll('Ệ', 'E')
+        .replaceAll('Í', 'I').replaceAll('Ì', 'I').replaceAll('Ỉ', 'I')
+        .replaceAll('Ĩ', 'I').replaceAll('Ị', 'I')
+        .replaceAll('Ó', 'O').replaceAll('Ò', 'O').replaceAll('Ỏ', 'O')
+        .replaceAll('Õ', 'O').replaceAll('Ọ', 'O').replaceAll('Ô', 'O')
+        .replaceAll('Ố', 'O').replaceAll('Ồ', 'O').replaceAll('Ổ', 'O')
+        .replaceAll('Ỗ', 'O').replaceAll('Ộ', 'O').replaceAll('Ơ', 'O')
+        .replaceAll('Ớ', 'O').replaceAll('Ờ', 'O').replaceAll('Ở', 'O')
+        .replaceAll('Ỡ', 'O').replaceAll('Ợ', 'O')
+        .replaceAll('Ú', 'U').replaceAll('Ù', 'U').replaceAll('Ủ', 'U')
+        .replaceAll('Ũ', 'U').replaceAll('Ụ', 'U').replaceAll('Ư', 'U')
+        .replaceAll('Ứ', 'U').replaceAll('Ừ', 'U').replaceAll('Ử', 'U')
+        .replaceAll('Ữ', 'U').replaceAll('Ự', 'U')
+        .replaceAll('Ý', 'Y').replaceAll('Ỳ', 'Y').replaceAll('Ỷ', 'Y')
+        .replaceAll('Ỹ', 'Y').replaceAll('Ỵ', 'Y');
+    
+    // Remove common city prefixes to match exact database format
+    normalized = normalized
+        .replaceAll('TP. ', '')  // Thành phố (City)
+        .replaceAll('Tp. ', '')
+        .replaceAll('TP.', '')
+        .replaceAll('Tp.', '')
+        .replaceAll('T.P. ', '')
+        .replaceAll('T.P.', '')
+        .replaceAll('Thanh pho ', '')
+        .replaceAll('Tinh ', '')  // Tỉnh (Province)
+        .replaceAll('Tỉnh ', '')
+        .trim();
+    
+    // Handle specific mappings to match exact database format
+    final Map<String, String> exactMappings = {
+      'Ho Chi Minh': 'Ho Chi Minh',
+      'HCM': 'Ho Chi Minh',
+      'Sai Gon': 'Ho Chi Minh',
+      'Thu Duc': 'Ho Chi Minh',
+      'Da Lat': 'Da Lat',
+      'Dalat': 'Da Lat',
+      'Ha Noi': 'Hanoi',
+      'Hanoi': 'Hanoi',
+      'Can Tho': 'Can Tho',
+      'Cantho': 'Can Tho',
+      'Da Nang': 'Da Nang',
+      'Danang': 'Da Nang',
+    };
+    
+    // Check for exact mappings first
+    for (final entry in exactMappings.entries) {
+      if (normalized.toLowerCase() == entry.key.toLowerCase()) {
+        return entry.value;
+      }
+    }
+    
+    return normalized;
+  }
+
 
   // Check if any critical values are missing
   bool _hasMissingValues() {
     return city == 'Not found' || date == 'Not found' || ticketNumber == 'Not found';
+  }
+
+  // Get text showing which fields have been found during auto-scanning
+  String _getFoundFieldsText() {
+    List<String> found = [];
+    if (city != 'Not found') found.add('City');
+    if (date != 'Not found') found.add('Date'); 
+    if (ticketNumber != 'Not found') found.add('Ticket#');
+    
+    if (found.isEmpty) {
+      return 'Searching for City, Date, and Ticket Number...';
+    } else if (found.length == 3) {
+      return 'All fields found! ✓';
+    } else {
+      return '${found.join(', ')} ✓ (need ${3 - found.length} more)';
+    }
   }
 
   // Start a new photo session and open camera directly
@@ -822,10 +944,136 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
       ticketNumber = 'Not found';
       rawText = '';
       _isCameraInitialized = false;
+      
+      // Reset auto-scanning state
+      _isAutoScanning = false;
+      _autoScanAttempts = 0;
+      _isWinner = null;
+      _winAmount = null;
+      _matchedTiers = null;
+      _winnerCheckError = null;
     });
     
-    // Directly open camera
+    // Cancel any existing auto-scan timer
+    _autoScanTimer?.cancel();
+    
+    // Directly open camera and start auto-scanning
     await _initializeCamera();
+    
+    // Wait a moment for camera to stabilize, then start auto-scanning
+    await Future.delayed(Duration(milliseconds: 500));
+    _startAutoScanning();
+  }
+
+  // Start automatic scanning until all values are found
+  void _startAutoScanning() {
+    if (_isAutoScanning) return; // Already running
+    
+    setState(() {
+      _isAutoScanning = true;
+      _autoScanAttempts = 0;
+    });
+    
+    print('=== AUTO-SCANNING STARTED ===');
+    _performAutoScan();
+  }
+  
+  // Stop automatic scanning
+  void _stopAutoScanning() {
+    _autoScanTimer?.cancel();
+    setState(() {
+      _isAutoScanning = false;
+    });
+    print('=== AUTO-SCANNING STOPPED ===');
+  }
+  
+  // Perform a single auto-scan attempt
+  Future<void> _performAutoScan() async {
+    if (!_isAutoScanning || _autoScanAttempts >= _maxAutoScanAttempts) {
+      print('Auto-scan stopping: isAutoScanning=$_isAutoScanning, attempts=$_autoScanAttempts');
+      _stopAutoScanning();
+      return;
+    }
+    
+    if (_cameraController == null || !_cameraController!.value.isInitialized) {
+      print('Auto-scan stopping: camera not initialized');
+      _stopAutoScanning();
+      return;
+    }
+    
+    setState(() {
+      _autoScanAttempts++;
+    });
+    print('Auto-scan attempt ${_autoScanAttempts}/${_maxAutoScanAttempts}');
+    
+    try {
+      // Take a single picture
+      final XFile picture = await _cameraController!.takePicture();
+      
+      // Process the image
+      final result = await _processSingleImage(picture);
+      if (result != null) {
+        // Extract data directly from the result (no nested 'parsedInfo')
+        final cityResult = result['city'] as String;
+        final dateResult = result['date'] as String;
+        final ticketResult = result['ticketNumber'] as String;
+        final confidence = result['confidence'] as double;
+        
+        // Check if we have good results - be less strict to avoid infinite scanning
+        bool hasGoodCity = cityResult != 'Not found';
+        bool hasGoodDate = dateResult != 'Not found';  
+        bool hasGoodTicket = ticketResult != 'Not found';
+        int foundCount = (hasGoodCity ? 1 : 0) + (hasGoodDate ? 1 : 0) + (hasGoodTicket ? 1 : 0);
+        
+        print('Auto-scan confidence: $confidence - City: $cityResult, Date: $dateResult, Ticket: $ticketResult');
+        print('Found: ${foundCount}/3 fields (need all 3 to stop)');
+        print('Raw OCR text: ${result['rawText']}');
+        
+        // Only stop when ALL THREE fields are found
+        if (foundCount == 3) {
+          
+          // We found confident results - stop auto-scanning and update UI
+          print('=== AUTO-SCAN SUCCESS! Found $foundCount/3 fields ===');
+          _stopAutoScanning();
+          
+          setState(() {
+            city = cityResult;
+            date = dateResult;
+            ticketNumber = ticketResult;
+            rawText = result['rawText'] ?? '';
+            _processedImagePath = result['imagePath'] ?? '';
+            isProcessing = false;
+            _isCameraInitialized = false;
+          });
+          
+          // Close camera
+          _cameraController?.dispose();
+          _cameraController = null;
+          
+          // Check winner if we have all required info
+          await _checkWinnerIfEligible();
+          
+          return;
+        }
+      } else {
+        print('Auto-scan: Failed to process image, continuing...');
+      }
+      
+      // Schedule next scan if we haven't found confident results
+      if (_isAutoScanning && _autoScanAttempts < _maxAutoScanAttempts) {
+        print('Scheduling next auto-scan in 2 seconds...');
+        _autoScanTimer = Timer(Duration(milliseconds: 2000), () {
+          _performAutoScan();
+        });
+      } else {
+        print('Auto-scan stopped: attempts=${_autoScanAttempts}, maxAttempts=${_maxAutoScanAttempts}');
+        _stopAutoScanning();
+      }
+      
+    } catch (e) {
+      print('Error in auto-scan: $e');
+      _stopAutoScanning();
+    }
   }
 
   // Calculate similarity between two strings with OCR error tolerance
@@ -1068,24 +1316,89 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
               ),
               SizedBox(height: 20),
               
-              // Take picture button
-              Center(
-                child: ElevatedButton(
-                  onPressed: isProcessing ? null : _takePictureAndProcess,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                    foregroundColor: Colors.white,
-                    padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
+              // Auto-scanning status or manual controls
+              if (_isAutoScanning) ...[
+                // Auto-scanning status
+                Container(
+                  padding: EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.orange[100],
+                    border: Border.all(color: Colors.orange, width: 2),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Text(
-                    isProcessing ? 'Processing...' : 'Take Picture',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.orange),
+                            ),
+                          ),
+                          SizedBox(width: 12),
+                          Text(
+                            'Auto-Scanning...',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.orange[800],
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        'Found: ${_getFoundFieldsText()}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.orange[700],
+                          fontWeight: FontWeight.w500,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      SizedBox(height: 12),
+                      ElevatedButton(
+                        onPressed: _stopAutoScanning,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                          padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: Text(
+                          'Stop Scanning',
+                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ),
+              ] else ...[
+                // Manual picture button (fallback)
+                Center(
+                  child: ElevatedButton(
+                    onPressed: isProcessing ? null : _takePictureAndProcess,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
+                      padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: Text(
+                      isProcessing ? 'Processing...' : 'Take Picture (Manual)',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              ],
             ] else ...[
               // Start camera button when camera not initialized
               Container(
@@ -1109,9 +1422,9 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
                       ),
                       SizedBox(height: 20),
                       ElevatedButton(
-                        onPressed: isProcessing ? null : _initializeCamera,
+                        onPressed: isProcessing ? null : _scanAnother,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue,
+                          backgroundColor: Colors.green,
                           foregroundColor: Colors.white,
                           padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                           shape: RoundedRectangleBorder(
@@ -1119,7 +1432,7 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
                           ),
                         ),
                         child: Text(
-                          isProcessing ? 'Starting Camera...' : 'Start Camera',
+                          isProcessing ? 'Starting...' : 'Start Auto-Scan',
                           style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                       ),
@@ -1143,7 +1456,7 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
                         foregroundColor: Colors.white,
                         padding: EdgeInsets.symmetric(vertical: 12),
                       ),
-                      child: Text('Scan Another'),
+                      child: Text('Auto-Scan Another'),
                     ),
                   ),
                   if (_hasMissingValues()) ...[
