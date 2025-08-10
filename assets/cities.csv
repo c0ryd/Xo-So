@@ -1,42 +1,43 @@
-﻿Province,code
-An Giang,angi
-Bac Lieu,bali
-Ben Tre,betr
-Binh Duong,bidu
-Binh Phuoc,biph
-Binh Thuan,bith
-Ca Mau,cama
-Can Tho,cath
-Da Lat,dalat
-Dong Nai,dona
-Dong Thap,doth
-Hau Giang,hagi
-Kien Giang,kigi
-Long An,loan
-Soc Trang,sotr
-Tay Ninh,tani
-Tien Giang,tigi
-Ho Chi Minh,tphc
-Tra Vinh,trvi
-Vinh Long,vilo
-Vung Tau,vuta
-Bac Ninh,bani
-Hanoi,hano
-Hai Phong,haph
-Nam Dinh,nadi
-Quang Ninh,quni
-Thai Binh,thbi
-Binh Dinh,bidi
-Da Nang,dana
-Dak Lak,dalak
-Dak Nong,dano
-Gia Lai,gila
-Khanh Hoa,khho
-Kon Tum,kotu
-Ninh Thuan,nith
-Phu Yen,phye
-Quang Binh,qubi
-Quang Nam,quna
-Quang Ngai,qung
-Quang Tri,qutr
-Hue,thth
+﻿Province,code,,,,,,,
+An Giang,angi,x,,,,"""An Giang"": ""angi"",",,"""An Giang"": ""angi"","
+Bac Lieu,bali,x,,,,"""Bac Lieu"": ""bali"",",,"""Bac Lieu"": ""bali"","
+Bac Ninh,bani,x,,,,"""Bac Ninh"": ""bani"",",,"""Bac Ninh"": ""bani"","
+Ben Tre,betr,x,,,,"""Ben Tre"": ""betr"",",,"""Ben Tre"": ""betr"","
+Binh Dinh,bidi,x,,,,"""Binh Dinh"": ""bidi"",",,"""Binh Dinh"": ""bidi"","
+Binh Duong,bidu,x,,,,"""Binh Duong"": ""bidu"",",,"""Binh Duong"": ""bidu"","
+Binh Phuoc,biph,x,,,,"""Binh Phuoc"": ""biph"",",,"""Binh Phuoc"": ""biph"","
+Binh Thuan,bith,x,,,,"""Binh Thuan"": ""bith"",",,"""Binh Thuan"": ""bith"","
+Ca Mau,cama,x,,,,"""Ca Mau"": ""cama"",",,"""Ca Mau"": ""cama"","
+Can Tho,cath,x,,,,"""Can Tho"": ""cath"",",,"""Can Tho"": ""cath"","
+Da Lat,dalat,x,,,,"""Da Lat"": ""dalat"",",,"""Da Lat"": ""dalat"","
+Da Nang,dana,x,,,,"""Da Nang"": ""dana"",",,"""Da Nang"": ""dana"","
+Dak Lak,dalak,x,,,,"""Dak Lak"": ""dalak"",",,"""Dak Lak"": ""dalak"","
+Dak Nong,dano,x,,,,"""Dak Nong"": ""dano"",",,"""Dak Nong"": ""dano"","
+Dong Nai,dona,x,,,,"""Dong Nai"": ""dona"",",,"""Dong Nai"": ""dona"","
+Dong Thap,doth,x,,,,"""Dong Thap"": ""doth"",",,"""Dong Thap"": ""doth"","
+Gia Lai,gila,x,,,,"""Gia Lai"": ""gila"",",,"""Gia Lai"": ""gila"","
+Hai Phong,haph,x,,,,"""Hai Phong"": ""haph"",",,"""Hai Phong"": ""haph"","
+Hanoi,hano,x,,,,"""Hanoi"": ""hano"",",,"""Hanoi"": ""hano"","
+Hau Giang,hagi,x,,,,"""Hau Giang"": ""hagi"",",,"""Hau Giang"": ""hagi"","
+Ho Chi Minh,tphc,x,,,,"""Ho Chi Minh"": ""tphc"",",,"""Ho Chi Minh"": ""tphc"","
+Hue,thth,x,,,,"""Hue"": ""thth"",",,"""Hue"": ""thth"","
+Khanh Hoa,khho,x,,,,"""Khanh Hoa"": ""khho"",",,"""Khanh Hoa"": ""khho"","
+Kien Giang,kigi,x,,,,"""Kien Giang"": ""kigi"",",,"""Kien Giang"": ""kigi"","
+Kon Tum,kotu,x,,,,"""Kon Tum"": ""kotu"",",,"""Kon Tum"": ""kotu"","
+Long An,loan,x,,,,"""Long An"": ""loan"",",,"""Long An"": ""loan"","
+Nam Dinh,nadi,x,,,,"""Nam Dinh"": ""nadi"",",,"""Nam Dinh"": ""nadi"","
+Ninh Thuan,nith,x,,,,"""Ninh Thuan"": ""nith"",",,"""Ninh Thuan"": ""nith"","
+Phu Yen,phye,x,,,,"""Phu Yen"": ""phye"",",,"""Phu Yen"": ""phye"","
+Quang Binh,qubi,x,,,,"""Quang Binh"": ""qubi"",",,"""Quang Binh"": ""qubi"","
+Quang Nam,quna,x,,,,"""Quang Nam"": ""quna"",",,"""Quang Nam"": ""quna"","
+Quang Ngai,qung,x,,,,"""Quang Ngai"": ""qung"",",,"""Quang Ngai"": ""qung"","
+Quang Ninh,quni,x,,,,"""Quang Ninh"": ""quni"",",,"""Quang Ninh"": ""quni"","
+Quang Tri,qutr,x,,,,"""Quang Tri"": ""qutr"",",,"""Quang Tri"": ""qutr"","
+Soc Trang,sotr,x,,,,"""Soc Trang"": ""sotr"",",,"""Soc Trang"": ""sotr"","
+Tay Ninh,tani,x,,,,"""Tay Ninh"": ""tani"",",,"""Tay Ninh"": ""tani"","
+Thai Binh,thbi,x,,,,"""Thai Binh"": ""thbi"",",,"""Thai Binh"": ""thbi"","
+Tien Giang,tigi,x,,,,"""Tien Giang"": ""tigi"",",,"""Tien Giang"": ""tigi"","
+Tra Vinh,trvi,x,,,,"""Tra Vinh"": ""trvi"",",,"""Tra Vinh"": ""trvi"","
+Vinh Long,vilo,x,,,,"""Vinh Long"": ""vilo"",",,"""Vinh Long"": ""vilo"","
+Vung Tau,vuta,x,,,,"""Vung Tau"": ""vuta"",",,"""Vung Tau"": ""vuta"","
+,,,,,,,lam dong,

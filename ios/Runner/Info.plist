@@ -47,5 +47,9 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>This app needs camera access to scan lottery tickets with OCR.</string>
+	<key>NSUserNotificationsUsageDescription</key>
+	<string>This app needs notification permissions to alert you when your lottery tickets win.</string>
+	<key>GADApplicationIdentifier</key>
+	<string>ca-app-pub-3940256099942544~1458002511</string>
 </dict>
 </plist>
