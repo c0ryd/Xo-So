@@ -30,7 +30,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-
+  flutter_localizations:
+    sdk: flutter
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
@@ -52,6 +53,8 @@ dependencies:
   # Push notifications using AWS SNS + local notifications
   flutter_local_notifications: ^18.0.1
   permission_handler: ^11.3.1
+  shared_preferences: ^2.3.2
+  provider: ^6.1.2
   
   # Google AdMob for banner ads
   google_mobile_ads: ^5.1.0
@@ -75,6 +78,9 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  # Enable internationalization
+  generate: true
 
   # To add assets to your application, add an assets section, like this:
   assets:

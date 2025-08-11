@@ -1,0 +1,173 @@
+{
+  "@@locale": "en",
+  "appTitle": "Vietnamese Lottery OCR",
+  "@appTitle": {
+    "description": "The title of the application"
+  },
+  "scanTicket": "Scan a ticket",
+  "@scanTicket": {
+    "description": "Button text to start scanning a lottery ticket"
+  },
+  "currentResults": "CURRENT RESULTS",
+  "@currentResults": {
+    "description": "Header for current lottery results section"
+  },
+  "pendingResults": "Pending Results",
+  "@pendingResults": {
+    "description": "Title when results are not available yet"
+  },
+  "winnerCheckFailed": "Winner Check Failed",
+  "@winnerCheckFailed": {
+    "description": "Title when winner check fails"
+  },
+  "processingImage": "Processing image...",
+  "@processingImage": {
+    "description": "Message shown while processing the scanned image"
+  },
+  "ticketDetails": "Ticket Details",
+  "@ticketDetails": {
+    "description": "Header for ticket details section"
+  },
+  "province": "Province",
+  "@province": {
+    "description": "Label for province field"
+  },
+  "ticketNumber": "Ticket Number",
+  "@ticketNumber": {
+    "description": "Label for ticket number field"
+  },
+  "drawDate": "Draw Date",
+  "@drawDate": {
+    "description": "Label for draw date field"
+  },
+  "region": "Region",
+  "@region": {
+    "description": "Label for region field"
+  },
+  "congratulations": "🎉 Congratulations! 🎉",
+  "@congratulations": {
+    "description": "Congratulations message for winners"
+  },
+  "youWon": "You won {amount} VND!",
+  "@youWon": {
+    "description": "Message showing winnings amount",
+    "placeholders": {
+      "amount": {
+        "type": "String",
+        "example": "1,000,000"
+      }
+    }
+  },
+  "matchedTiers": "Matched Tiers: {tiers}",
+  "@matchedTiers": {
+    "description": "Shows which prize tiers were matched",
+    "placeholders": {
+      "tiers": {
+        "type": "String",
+        "example": "G1, G3"
+      }
+    }
+  },
+  "notAWinner": "Not a winner this time",
+  "@notAWinner": {
+    "description": "Message when ticket is not a winner"
+  },
+  "betterLuckNextTime": "Better luck next time! Keep playing!",
+  "@betterLuckNextTime": {
+    "description": "Encouraging message for non-winners"
+  },
+  "resultsNotAvailable": "Results for {province} are not available yet. You will be notified when results are available.",
+  "@resultsNotAvailable": {
+    "description": "Message when lottery results are not yet available",
+    "placeholders": {
+      "province": {
+        "type": "String",
+        "example": "Tiền Giang"
+      }
+    }
+  },
+  "drawingNotOccurred": "This drawing has not occurred yet, you will receive a notification after the drawing has occurred.",
+  "@drawingNotOccurred": {
+    "description": "Message when drawing hasn't happened yet"
+  },
+  "errorOccurred": "An error occurred. Please try again.",
+  "@errorOccurred": {
+    "description": "Generic error message"
+  },
+  "cameraPermissionRequired": "Camera permission is required to scan tickets",
+  "@cameraPermissionRequired": {
+    "description": "Message when camera permission is needed"
+  },
+  "logout": "Logout",
+  "@logout": {
+    "description": "Logout button text"
+  },
+  "settings": "Settings",
+  "@settings": {
+    "description": "Settings menu item"
+  },
+  "language": "Language",
+  "@language": {
+    "description": "Language setting label"
+  },
+  "english": "English",
+  "@english": {
+    "description": "English language option"
+  },
+  "vietnamese": "Vietnamese",
+  "@vietnamese": {
+    "description": "Vietnamese language option"
+  },
+  "todaysDrawings": "Today's Drawings",
+  "@todaysDrawings": {
+    "description": "Menu item for today's drawings"
+  },
+  "drawingResults": "Drawing Results",
+  "@drawingResults": {
+    "description": "Menu item for drawing results"
+  },
+  "comingSoon": "Coming Soon!",
+  "@comingSoon": {
+    "description": "Message for features not yet implemented"
+  },
+  "ticketStored": "Ticket stored successfully",
+  "@ticketStored": {
+    "description": "Success message when ticket is stored"
+  },
+  "failedToStore": "Failed to store ticket. Please try again.",
+  "@failedToStore": {
+    "description": "Error message when ticket storage fails"
+  },
+  "scanAnother": "Scan Another",
+  "@scanAnother": {
+    "description": "Button to scan another ticket"
+  },
+  "forgotPassword": "Forgot Password?",
+  "@forgotPassword": {
+    "description": "Link to reset password"
+  },
+  "resetPassword": "Reset Password",
+  "@resetPassword": {
+    "description": "Reset password button text"
+  },
+  "enterEmailToReset": "Enter your email address and we'll send you a link to reset your password.",
+  "@enterEmailToReset": {
+    "description": "Instructions for password reset"
+  },
+  "sendResetLink": "Send Reset Link",
+  "@sendResetLink": {
+    "description": "Button to send password reset email"
+  },
+  "resetLinkSent": "Password reset link sent! Check your email.",
+  "@resetLinkSent": {
+    "description": "Success message after sending reset link"
+  },
+  "backToSignIn": "Back to Sign In",
+  "@backToSignIn": {
+    "description": "Link to return to sign in screen"
+  },
+  "emailRequired": "Email is required",
+  "@emailRequired": {
+    "description": "Error when email field is empty"
+  }
+}

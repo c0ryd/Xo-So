@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';  // Re-enabled with Supabase
 import 'package:camera/camera.dart';
 import 'package:image/image.dart' as img;
@@ -16,13 +17,22 @@ import 'package:amazon_cognito_identity_dart_2/cognito.dart';
 import 'package:amazon_cognito_identity_dart_2/sig_v4.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:provider/provider.dart';
 import 'services/supabase_auth_service.dart';
 import 'services/notification_service.dart';
 import 'services/ticket_storage_service.dart';
 import 'services/ad_service.dart';
+import 'services/language_service.dart';
 import 'screens/supabase_login_screen.dart';
+import 'screens/settings_screen.dart';
+import 'screens/daily_summary_screen.dart';
+import 'screens/user_tickets_summary_screen.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 late List<CameraDescription> cameras;
+
+// Global navigator key for navigation from notifications
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -49,7 +59,12 @@ void main() async {
   tz.initializeTimeZones();
   
   cameras = await availableCameras();
-  runApp(MyApp());
+  runApp(
+    ChangeNotifierProvider(
+      create: (context) => LanguageService(),
+      child: MyApp(),
+    ),
+  );
 }
 
 // Custom painter for lottery ticket overlay frame
@@ -113,10 +128,26 @@ class LotteryTicketOverlayPainter extends CustomPainter {
 class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Vietnamese Lottery OCR',
-      theme: ThemeData(primarySwatch: Colors.blue),
-      home: AuthWrapper(),
+    return Consumer<LanguageService>(
+      builder: (context, languageService, child) {
+        return MaterialApp(
+          navigatorKey: navigatorKey,
+          title: 'Vietnamese Lottery OCR',
+          theme: ThemeData(primarySwatch: Colors.blue),
+          locale: languageService.currentLocale,
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [
+            Locale('en'), // English
+            Locale('vi'), // Vietnamese
+          ],
+          home: AuthWrapper(),
+        );
+      },
     );
   }
 }
@@ -155,7 +186,7 @@ class MainAppScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Vietnamese Lottery OCR'),
+        title: Text(AppLocalizations.of(context)!.appTitle),
         actions: [],
       ),
       body: LotteryOCRScreen(),
@@ -215,7 +246,34 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
     _loadCitiesData();
     _loadProvinceSchedule();
     _createBannerAd(); // Create ad early for faster loading
+    
+    // Set up notification navigation callback
+    NotificationService.setMyTicketsNavigationCallback(_navigateToMyTickets);
+    
     // Don't initialize camera automatically - wait for user to click button
+  }
+
+  /// Navigate to My Tickets screen when notification is tapped
+  void _navigateToMyTickets() {
+    print('🎯 _navigateToMyTickets called!');
+    final context = navigatorKey.currentContext;
+    print('🎯 Navigator context available: ${context != null}');
+    
+    if (context != null) {
+      print('🎯 Pushing UserTicketsSummaryScreen...');
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const UserTicketsSummaryScreen(),
+        ),
+      ).then((_) {
+        print('🎯 Navigation completed');
+      }).catchError((error) {
+        print('❌ Navigation error: $error');
+      });
+    } else {
+      print('⚠️ Cannot navigate: no valid context available');
+    }
   }
   
   Future<void> _loadCitiesData() async {
@@ -1055,13 +1113,6 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
       );
       
       if (success) {
-        // Show local notification
-        await NotificationService.showTicketStoredNotification(
-          ticketNumber: ticketNumber,
-          drawDate: date,
-          province: city,
-        );
-        
         setState(() {
           rawText = '$rawText\n\n✅ TICKET STORED FOR PROCESSING\nYou will be notified if you win after the drawing on $date!';
         });
@@ -1225,6 +1276,7 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
           _matchedTiers = (responseData['MatchedTiers'] as List?)?.cast<String>();
           _isCheckingWinner = false;
         });
+
       } else {
         throw Exception('API returned ${response.statusCode}: ${response.body}');
       }
@@ -1449,12 +1501,7 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
               );
               
               if (success) {
-                // Show local notification
-                await NotificationService.showTicketStoredNotification(
-                  ticketNumber: ticketResult,
-                  drawDate: dateResult,
-                  province: cityResult,
-                );
+                print('Ticket stored successfully in auto-scan!');
               }
               
               // Also check for winners if results are available
@@ -1731,7 +1778,7 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Vietnamese Lottery OCR'),
+        title: Text(AppLocalizations.of(context)!.appTitle),
         backgroundColor: Colors.blue,
         foregroundColor: Colors.white,
       ),
@@ -1748,7 +1795,7 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   Text(
-                    'Vietnamese Lottery OCR',
+                    AppLocalizations.of(context)!.appTitle,
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 18,
@@ -1768,18 +1815,40 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
             ),
             ListTile(
               leading: Icon(Icons.calendar_today),
-              title: Text('Today\'s Drawings'),
+              title: Text(AppLocalizations.of(context)!.todaysDrawings),
               onTap: () {
                 Navigator.pop(context);
                 // TODO: Navigate to Today's Drawings screen
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Today\'s Drawings - Coming Soon!')),
+                  SnackBar(content: Text(AppLocalizations.of(context)!.comingSoon)),
+                );
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.receipt_long),
+              title: Text('My Tickets'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const UserTicketsSummaryScreen()),
+                );
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.settings),
+              title: Text(AppLocalizations.of(context)!.settings),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => SettingsScreen()),
                 );
               },
             ),
             ListTile(
               leading: Icon(Icons.logout),
-              title: Text('Logout'),
+              title: Text(AppLocalizations.of(context)!.logout),
               onTap: () async {
                 Navigator.pop(context);
                 await SupabaseAuthService().signOut();
@@ -1960,14 +2029,72 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
                     ),
                   ),
                   child: Text(
-                    isProcessing ? 'Starting...' : 'Scan a ticket',
+                    isProcessing ? AppLocalizations.of(context)!.processingImage : AppLocalizations.of(context)!.scanTicket,
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                 ),
               ),
-            ],
+                        ],
             
             SizedBox(height: 20),
+            
+            // Demo buttons for production notifications
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      print('📱 Testing winner summary notification...');
+                      await NotificationService.showDailyWinnerSummary(
+                        date: '2025-08-10',
+                        winningTickets: [
+                          {
+                            'ticketNumber': '123456',
+                            'province': 'Tiền Giang',
+                            'winAmount': 100000,
+                            'matchedTiers': ['G8'],
+                          },
+                        ],
+                        losingTickets: [
+                          {
+                            'ticketNumber': '654321',
+                            'province': 'Tiền Giang',
+                          },
+                        ],
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                    child: Text('Test Winner', style: TextStyle(color: Colors.white)),
+                  ),
+                ),
+                SizedBox(width: 8),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      print('📱 Testing non-winner summary notification...');
+                      await NotificationService.showDailyNonWinnerSummary(
+                        date: '2025-08-10',
+                        losingTickets: [
+                          {
+                            'ticketNumber': '111111',
+                            'province': 'Tiền Giang',
+                          },
+                          {
+                            'ticketNumber': '222222',
+                            'province': 'An Giang',
+                          },
+                        ],
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+                    child: Text('Test Non-Winner', style: TextStyle(color: Colors.white)),
+                  ),
+                ),
+              ],
+            ),
+            
+            SizedBox(height: 20),
+
             
             // Action buttons when image is captured
             if (_processedImagePath != null) ...[

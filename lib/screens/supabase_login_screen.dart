@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/supabase_auth_service.dart';
+import 'password_recovery_screen.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class SupabaseLoginScreen extends StatefulWidget {
   const SupabaseLoginScreen({super.key});
@@ -294,7 +296,28 @@ class _SupabaseLoginScreenState extends State<SupabaseLoginScreen> {
                     border: const OutlineInputBorder(),
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 12),
+
+                // Forgot Password link (only show in sign in mode)
+                if (!_isSignUpMode)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const PasswordRecoveryScreen(),
+                          ),
+                        );
+                      },
+                      child: Text(
+                        AppLocalizations.of(context)!.forgotPassword,
+                        style: const TextStyle(color: Colors.blue),
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 8),
 
                 // Sign In / Sign Up button
                 ElevatedButton(
