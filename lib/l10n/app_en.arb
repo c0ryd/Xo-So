@@ -118,9 +118,9 @@
   "@vietnamese": {
     "description": "Vietnamese language option"
   },
-  "todaysDrawings": "Today's Drawings",
+  "todaysDrawings": "Results",
   "@todaysDrawings": {
-    "description": "Menu item for today's drawings"
+    "description": "Menu item for drawing results"
   },
   "drawingResults": "Drawing Results",
   "@drawingResults": {
