@@ -2100,17 +2100,34 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
                 );
               },
             ),
-            ListTile(
-              leading: Icon(Icons.settings, color: Colors.black87),
-              title: Text(
-                AppLocalizations.of(context)!.settings,
-                style: TextStyle(color: Colors.black87),
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => SettingsScreen()),
+            // Language toggle with flag icons
+            Consumer<LanguageService>(
+              builder: (context, languageService, child) {
+                final isVietnamese = languageService.currentLocale.languageCode == 'vi';
+                return ListTile(
+                  leading: Text(
+                    isVietnamese ? '🇻🇳' : '🇺🇸',
+                    style: TextStyle(fontSize: 24),
+                  ),
+                  title: Row(
+                    children: [
+                      Text(
+                        isVietnamese ? 'Tiếng Việt' : 'English',
+                        style: TextStyle(color: Colors.black87),
+                      ),
+                      Spacer(),
+                      Switch(
+                        value: isVietnamese,
+                        onChanged: (value) {
+                          languageService.toggleLanguage();
+                        },
+                        activeColor: Colors.orange,
+                      ),
+                    ],
+                  ),
+                  onTap: () {
+                    languageService.toggleLanguage();
+                  },
                 );
               },
             ),

@@ -346,6 +346,9 @@ class _UserTicketsSummaryScreenState extends State<UserTicketsSummaryScreen> {
       }
       return sum;
     });
+    
+    // Check if any tickets are pending (not checked yet)
+    final hasPendingTickets = tickets.any((ticket) => !((ticket['hasBeenChecked'] as bool?) ?? false));
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -358,14 +361,37 @@ class _UserTicketsSummaryScreenState extends State<UserTicketsSummaryScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Province header
-          Text(
-            province,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Colors.green,
-            ),
+          // Province header with pending status
+          Row(
+            children: [
+              Expanded(
+                child: Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: province,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: hasPendingTickets ? Colors.orange[700] : Colors.black87,
+                        ),
+                      ),
+                      if (hasPendingTickets) ...[
+                        TextSpan(text: ' - '),
+                        TextSpan(
+                          text: 'Pending',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.orange[700],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
           
           if (totalWinnings > 0) ...[
@@ -582,18 +608,9 @@ class _UserTicketsSummaryScreenState extends State<UserTicketsSummaryScreen> {
                     ),
                   ),
                   const SizedBox(width: 16),
-                  // Ticket number
+                  // Ticket number (highlighted for winners)
                   Expanded(
-                    child: Text(
-                      '#$ticketNumber',
-                      style: TextStyle(
-                        color: Colors.black87,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w900,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 1,
-                    ),
+                    child: _buildHighlightedTicketNumber(ticketNumber, matchedTiers),
                   ),
                 ],
               ),
@@ -667,22 +684,92 @@ class _UserTicketsSummaryScreenState extends State<UserTicketsSummaryScreen> {
                       ],
                     ),
                     const SizedBox(height: 8),
-                    // Always show ticket number for pending/not-winner
-                    Text(
-                      '#$ticketNumber',
-                      style: TextStyle(
-                        color: Colors.black87,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w900,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 1,
-                    ),
+                    // Always show ticket number for pending/not-winner (highlighted if applicable)
+                    _buildHighlightedTicketNumber(ticketNumber, matchedTiers),
                   ],
                 ),
               ),
             ],
           ),
+    );
+  }
+
+  // Function to get the number of digits to highlight based on matched tiers
+  int _getHighlightDigits(List<dynamic> matchedTiers) {
+    if (matchedTiers.isEmpty) return 0;
+    
+    // Map tiers to number of digits they match (from the end)
+    const Map<String, int> tierDigits = {
+      'DB': 6,   // Special prize - all 6 digits
+      'G1': 5,   // Tier 1 - last 5 digits
+      'G2': 5,   // Tier 2 - last 5 digits  
+      'G3': 5,   // Tier 3 - last 5 digits
+      'G4': 5,   // Tier 4 - last 5 digits
+      'G5': 4,   // Tier 5 - last 4 digits
+      'G6': 4,   // Tier 6 - last 4 digits
+      'G7': 3,   // Tier 7 - last 3 digits
+      'G8': 2,   // Tier 8 - last 2 digits
+    };
+    
+    // Find the highest number of digits to highlight
+    int maxDigits = 0;
+    for (final tier in matchedTiers) {
+      final digits = tierDigits[tier.toString()] ?? 0;
+      if (digits > maxDigits) {
+        maxDigits = digits;
+      }
+    }
+    
+    return maxDigits;
+  }
+
+  // Function to build highlighted ticket number
+  Widget _buildHighlightedTicketNumber(String ticketNumber, List<dynamic> matchedTiers) {
+    final highlightDigits = _getHighlightDigits(matchedTiers);
+    
+    if (highlightDigits == 0 || matchedTiers.isEmpty) {
+      // No highlighting needed
+      return Text(
+        '#$ticketNumber',
+        style: TextStyle(
+          color: Colors.black87,
+          fontSize: 22,
+          fontWeight: FontWeight.w900,
+        ),
+        overflow: TextOverflow.ellipsis,
+        maxLines: 1,
+      );
+    }
+    
+    // Split the ticket number for highlighting
+    final totalLength = ticketNumber.length;
+    final normalPart = totalLength > highlightDigits 
+        ? ticketNumber.substring(0, totalLength - highlightDigits)
+        : '';
+    final highlightPart = totalLength > highlightDigits
+        ? ticketNumber.substring(totalLength - highlightDigits)
+        : ticketNumber;
+    
+    return Text.rich(
+      TextSpan(
+        children: [
+          TextSpan(text: '#$normalPart'),
+          TextSpan(
+            text: highlightPart,
+            style: TextStyle(
+              color: Colors.green[700],
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
+      style: TextStyle(
+        color: Colors.black87,
+        fontSize: 22,
+        fontWeight: FontWeight.w900,
+      ),
+      overflow: TextOverflow.ellipsis,
+      maxLines: 1,
     );
   }
 
