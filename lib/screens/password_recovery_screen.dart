@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/supabase_auth_service.dart';
+import '../widgets/vietnamese_tiled_background.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class PasswordRecoveryScreen extends StatefulWidget {
@@ -68,13 +69,12 @@ class _PasswordRecoveryScreenState extends State<PasswordRecoveryScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(AppLocalizations.of(context)!.resetPassword),
-        backgroundColor: Colors.blue,
-        foregroundColor: Colors.white,
       ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
+      body: VietnameseTiledBackground(
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SizedBox(height: 40),
@@ -119,8 +119,6 @@ class _PasswordRecoveryScreenState extends State<PasswordRecoveryScreen> {
                     Navigator.of(context).pop();
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                    foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
@@ -183,8 +181,6 @@ class _PasswordRecoveryScreenState extends State<PasswordRecoveryScreen> {
                 ElevatedButton(
                   onPressed: _isLoading ? null : _sendResetEmail,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                    foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
@@ -211,6 +207,7 @@ class _PasswordRecoveryScreenState extends State<PasswordRecoveryScreen> {
               ],
             ],
           ),
+        ),
         ),
       ),
     );

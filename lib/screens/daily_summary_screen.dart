@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import '../widgets/vietnamese_tiled_background.dart';
 
 class DailySummaryScreen extends StatelessWidget {
   final List<Map<String, dynamic>> winningTickets;
@@ -24,12 +25,11 @@ class DailySummaryScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text('Daily Summary - $date'),
-        backgroundColor: Colors.green,
-        foregroundColor: Colors.white,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
+      body: VietnameseTiledBackground(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Summary card
@@ -125,6 +125,7 @@ class DailySummaryScreen extends StatelessWidget {
             ),
           ],
         ),
+        ),
       ),
     );
   }
@@ -134,7 +135,7 @@ class DailySummaryScreen extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: isWinner ? Colors.green[50] : Colors.grey[50],
+        color: Color(0xFFFFE8BE), // Original cream for ticket cards
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: isWinner ? Colors.green : Colors.grey[300]!,

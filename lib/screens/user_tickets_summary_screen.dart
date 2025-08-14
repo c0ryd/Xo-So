@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:amazon_cognito_identity_dart_2/cognito.dart';
 import 'package:amazon_cognito_identity_dart_2/sig_v4.dart';
+import '../widgets/vietnamese_tiled_background.dart';
 
 class UserTicketsSummaryScreen extends StatefulWidget {
   const UserTicketsSummaryScreen({Key? key}) : super(key: key);
@@ -175,8 +176,6 @@ class _UserTicketsSummaryScreenState extends State<UserTicketsSummaryScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('My Tickets'),
-        backgroundColor: Colors.green,
-        foregroundColor: Colors.white,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -184,7 +183,8 @@ class _UserTicketsSummaryScreenState extends State<UserTicketsSummaryScreen> {
           ),
         ],
       ),
-      body: _isLoading
+      body: VietnameseTiledBackground(
+        child: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _errorMessage != null
               ? Center(
@@ -231,6 +231,7 @@ class _UserTicketsSummaryScreenState extends State<UserTicketsSummaryScreen> {
                         },
                       ),
                     ),
+        ),
     );
   }
 
@@ -249,6 +250,7 @@ class _UserTicketsSummaryScreenState extends State<UserTicketsSummaryScreen> {
 
     return Card(
       margin: const EdgeInsets.only(bottom: 20),
+      color: Color(0xFFA5362D), // Earthy red-brown for date cards
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -257,7 +259,7 @@ class _UserTicketsSummaryScreenState extends State<UserTicketsSummaryScreen> {
             // Date header
             Row(
               children: [
-                Icon(Icons.calendar_today, color: Colors.blue, size: 20),
+                Icon(Icons.calendar_today, color: Color(0xFFFFE8BE), size: 20),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -265,21 +267,21 @@ class _UserTicketsSummaryScreenState extends State<UserTicketsSummaryScreen> {
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: Colors.blue,
+                      color: Color(0xFFFFE8BE),
                     ),
                   ),
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: Colors.blue[100],
+                    color: Color(0xFFFFE8BE).withOpacity(0.3),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     '$totalTickets ticket${totalTickets != 1 ? 's' : ''}',
                     style: TextStyle(
                       fontSize: 12,
-                      color: Colors.blue[800],
+                      color: Color(0xFFFFE8BE),
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -292,18 +294,18 @@ class _UserTicketsSummaryScreenState extends State<UserTicketsSummaryScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: Colors.green[100],
+                  color: Color(0xFFFFE8BE).withOpacity(0.3),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.star, color: Colors.green[700], size: 16),
+                    Icon(Icons.star, color: Color(0xFFFFE8BE), size: 16),
                     const SizedBox(width: 4),
                     Text(
                       'Total Winnings: ${totalWinnings.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')} VND',
                       style: TextStyle(
-                        color: Colors.green[700],
+                        color: Color(0xFFFFE8BE),
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
                       ),
@@ -341,7 +343,7 @@ class _UserTicketsSummaryScreenState extends State<UserTicketsSummaryScreen> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.grey[50],
+        color: Color(0xFFFFE8BE), // Original cream for province cards
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Colors.grey[300]!),
       ),
@@ -425,11 +427,7 @@ class _UserTicketsSummaryScreenState extends State<UserTicketsSummaryScreen> {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: !hasBeenChecked 
-          ? Colors.orange[50] 
-          : isWinner 
-            ? Colors.green[50] 
-            : Colors.grey[50],
+        color: Color(0xFFFFE8BE), // Original cream for ticket cards
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: !hasBeenChecked 

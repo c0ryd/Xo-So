@@ -28,6 +28,7 @@ import 'screens/settings_screen.dart';
 import 'screens/daily_summary_screen.dart';
 import 'screens/user_tickets_summary_screen.dart';
 import 'screens/todays_drawings_screen.dart';
+import 'widgets/vietnamese_tiled_background.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 late List<CameraDescription> cameras;
@@ -134,7 +135,43 @@ class MyApp extends StatelessWidget {
         return MaterialApp(
           navigatorKey: navigatorKey,
           title: 'Vietnamese Lottery OCR',
-          theme: ThemeData(primarySwatch: Colors.blue),
+          theme: ThemeData(
+            primarySwatch: Colors.blue,
+            scaffoldBackgroundColor: Colors.transparent, // Allow background to show through
+            appBarTheme: const AppBarTheme(
+              backgroundColor: Color(0xFF91000C), // Vietnamese red color
+              foregroundColor: Color(0xFFFFE8BE), // Light cream text
+              titleTextStyle: TextStyle(
+                color: Color(0xFFFFE8BE), // Light cream text color
+                fontWeight: FontWeight.bold,
+                fontSize: 20,
+              ),
+              iconTheme: IconThemeData(
+                color: Color(0xFFFFE8BE), // Light cream icons
+              ),
+              systemOverlayStyle: SystemUiOverlayStyle(
+                statusBarColor: Colors.transparent, // Make status bar transparent
+                statusBarIconBrightness: Brightness.light, // Light icons
+                statusBarBrightness: Brightness.dark, // For iOS
+              ),
+            ),
+            // Update other UI elements to complement the Vietnamese theme
+            elevatedButtonTheme: ElevatedButtonThemeData(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Color(0xFF91000C),
+                foregroundColor: Color(0xFFFFE8BE),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+            cardTheme: CardTheme(
+              elevation: 4,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
           locale: languageService.currentLocale,
           localizationsDelegates: const [
             AppLocalizations.delegate,
@@ -1780,16 +1817,15 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(AppLocalizations.of(context)!.appTitle),
-        backgroundColor: Colors.blue,
-        foregroundColor: Colors.white,
       ),
       drawer: Drawer(
+        backgroundColor: Color(0xFFFFE8BE), // Cream background
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
             DrawerHeader(
               decoration: BoxDecoration(
-                color: Colors.blue,
+                color: Color(0xFF91000C),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1798,7 +1834,7 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
                   Text(
                     AppLocalizations.of(context)!.appTitle,
                     style: TextStyle(
-                      color: Colors.white,
+                      color: Color(0xFFFFE8BE),
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                     ),
@@ -1807,7 +1843,7 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
                   Text(
                     _getUserEmail(),
                     style: TextStyle(
-                      color: Colors.white70,
+                      color: Color(0xFFFFE8BE).withOpacity(0.8),
                       fontSize: 14,
                     ),
                   ),
@@ -1815,8 +1851,11 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
               ),
             ),
             ListTile(
-              leading: Icon(Icons.calendar_today),
-              title: Text(AppLocalizations.of(context)!.todaysDrawings),
+              leading: Icon(Icons.calendar_today, color: Colors.black87),
+              title: Text(
+                AppLocalizations.of(context)!.todaysDrawings,
+                style: TextStyle(color: Colors.black87),
+              ),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.push(
@@ -1826,8 +1865,11 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
               },
             ),
             ListTile(
-              leading: Icon(Icons.receipt_long),
-              title: Text('My Tickets'),
+              leading: Icon(Icons.receipt_long, color: Colors.black87),
+              title: Text(
+                'My Tickets',
+                style: TextStyle(color: Colors.black87),
+              ),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.push(
@@ -1837,8 +1879,11 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
               },
             ),
             ListTile(
-              leading: Icon(Icons.settings),
-              title: Text(AppLocalizations.of(context)!.settings),
+              leading: Icon(Icons.settings, color: Colors.black87),
+              title: Text(
+                AppLocalizations.of(context)!.settings,
+                style: TextStyle(color: Colors.black87),
+              ),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.push(
@@ -1848,8 +1893,11 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
               },
             ),
             ListTile(
-              leading: Icon(Icons.logout),
-              title: Text(AppLocalizations.of(context)!.logout),
+              leading: Icon(Icons.logout, color: Colors.black87),
+              title: Text(
+                AppLocalizations.of(context)!.logout,
+                style: TextStyle(color: Colors.black87),
+              ),
               onTap: () async {
                 Navigator.pop(context);
                 await SupabaseAuthService().signOut();
@@ -1859,9 +1907,10 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
           ],
         ),
       ),
-      body: SingleChildScrollView(
-        padding: EdgeInsets.all(16.0),
-        child: Column(
+      body: VietnameseTiledBackground(
+        child: SingleChildScrollView(
+          padding: EdgeInsets.all(16.0),
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Processed image with adaptive height
@@ -2064,8 +2113,8 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
                         ],
                       );
                     },
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                    child: Text('Test Winner', style: TextStyle(color: Colors.white)),
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+                    child: Text('Test Winner'),
                   ),
                 ),
                 SizedBox(width: 8),
@@ -2087,8 +2136,8 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
                         ],
                       );
                     },
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-                    child: Text('Test Non-Winner', style: TextStyle(color: Colors.white)),
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.orange, foregroundColor: Colors.white),
+                    child: Text('Test Non-Winner'),
                   ),
                 ),
               ],
@@ -2329,6 +2378,7 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
             // Add some bottom padding so content isn't cut off
             SizedBox(height: 50),
           ],
+        ),
         ),
       ),
     );

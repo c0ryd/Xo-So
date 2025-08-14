@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/language_service.dart';
+import '../widgets/vietnamese_tiled_background.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -9,12 +10,11 @@ class SettingsScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text(AppLocalizations.of(context)!.settings),
-        backgroundColor: Colors.blue,
-        foregroundColor: Colors.white,
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16.0),
-        children: [
+      body: VietnameseTiledBackground(
+        child: ListView(
+          padding: const EdgeInsets.all(16.0),
+          children: [
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16.0),
@@ -88,6 +88,7 @@ class SettingsScreen extends StatelessWidget {
             ),
           ),
         ],
+        ),
       ),
     );
   }

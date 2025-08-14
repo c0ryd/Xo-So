@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/supabase_auth_service.dart';
+import '../widgets/vietnamese_tiled_background.dart';
 import 'password_recovery_screen.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
@@ -207,10 +208,11 @@ class _SupabaseLoginScreenState extends State<SupabaseLoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: ConstrainedBox(
+      body: VietnameseTiledBackground(
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24.0),
+            child: ConstrainedBox(
             constraints: BoxConstraints(
               minHeight: MediaQuery.of(context).size.height - 
                          MediaQuery.of(context).padding.top - 
@@ -323,8 +325,6 @@ class _SupabaseLoginScreenState extends State<SupabaseLoginScreen> {
                 ElevatedButton(
                   onPressed: _isLoading ? null : (_isSignUpMode ? _signUpWithEmail : _signInWithEmail),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                    foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
@@ -410,6 +410,7 @@ class _SupabaseLoginScreenState extends State<SupabaseLoginScreen> {
               ],
             ),
           ),
+        ),
         ),
       ),
     );
