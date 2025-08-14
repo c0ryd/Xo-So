@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:amazon_cognito_identity_dart_2/cognito.dart';
 import 'package:amazon_cognito_identity_dart_2/sig_v4.dart';
 import '../widgets/vietnamese_tiled_background.dart';
+import '../services/image_storage_service.dart';
 
 class UserTicketsSummaryScreen extends StatefulWidget {
   const UserTicketsSummaryScreen({Key? key}) : super(key: key);
@@ -74,6 +76,7 @@ class _UserTicketsSummaryScreenState extends State<UserTicketsSummaryScreen> {
         final responseData = json.decode(response.body);
         final tickets = (responseData['tickets'] as List).cast<Map<String, dynamic>>();
         
+
         // Filter tickets to last 30 days
         final now = DateTime.now();
         final thirtyDaysAgo = now.subtract(const Duration(days: 30));
@@ -91,6 +94,8 @@ class _UserTicketsSummaryScreenState extends State<UserTicketsSummaryScreen> {
           }
           return false;
         }).toList();
+        
+
         
         // Group tickets: Date -> Province -> Tickets
         final Map<String, Map<String, List<Map<String, dynamic>>>> groupedTickets = {};
@@ -351,33 +356,13 @@ class _UserTicketsSummaryScreenState extends State<UserTicketsSummaryScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Province header
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  province,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.green,
-                  ),
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  '${tickets.length} ticket${tickets.length != 1 ? 's' : ''}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[700],
-                  ),
-                ),
-              ),
-            ],
+          Text(
+            province,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.green,
+            ),
           ),
           
           if (totalWinnings > 0) ...[
@@ -408,142 +393,208 @@ class _UserTicketsSummaryScreenState extends State<UserTicketsSummaryScreen> {
           
           const SizedBox(height: 8),
           
-          // Tickets list
-          for (final ticket in tickets) _buildTicketCard(ticket),
+          // Tickets list (deduplicated)
+          ..._buildDeduplicatedTickets(tickets),
         ],
       ),
     );
   }
 
-  Widget _buildTicketCard(Map<String, dynamic> ticket) {
+  List<Widget> _buildDeduplicatedTickets(List<Map<String, dynamic>> tickets) {
+    // Group tickets by ticket number, date, and province
+    final Map<String, List<Map<String, dynamic>>> groupedTickets = {};
+    
+    for (final ticket in tickets) {
+      final ticketNumber = ticket['ticketNumber'] as String? ?? '';
+      final drawDate = ticket['drawDate'] as String? ?? '';
+      final province = ticket['province'] as String? ?? '';
+      
+      final key = '${ticketNumber}_${drawDate}_$province';
+      
+      if (!groupedTickets.containsKey(key)) {
+        groupedTickets[key] = [];
+      }
+      groupedTickets[key]!.add(ticket);
+    }
+    
+    // Build cards with counts
+    final List<Widget> cards = [];
+    for (final entry in groupedTickets.entries) {
+      final ticketGroup = entry.value;
+      final count = ticketGroup.length;
+      
+      // Use the first ticket as the representative
+      final representativeTicket = ticketGroup.first;
+      
+      // If there are multiple tickets, sum the win amounts
+      int totalWinAmount = 0;
+      for (final ticket in ticketGroup) {
+        if (ticket['winAmount'] is num) {
+          totalWinAmount += (ticket['winAmount'] as num).toInt();
+        }
+      }
+      
+      // Update the representative ticket with total win amount if needed
+      if (totalWinAmount > 0) {
+        representativeTicket['winAmount'] = totalWinAmount;
+      }
+      
+      cards.add(_buildTicketCard(representativeTicket, count: count));
+    }
+    
+    return cards;
+  }
+
+  Widget _buildTicketCard(Map<String, dynamic> ticket, {int count = 1}) {
     final isWinner = (ticket['isWinner'] as bool?) ?? false;
     final hasBeenChecked = (ticket['hasBeenChecked'] as bool?) ?? false;
     final drawDate = ticket['drawDate'] as String? ?? '';
     final ticketNumber = ticket['ticketNumber'] as String? ?? '';
     final winAmount = (ticket['winAmount'] is num) ? (ticket['winAmount'] as num).toInt() : 0;
     final matchedTiers = ticket['matchedTiers'] as List? ?? [];
+    final imagePath = ticket['imagePath'] as String? ?? '';
+    
+    // Determine border color, pill color, and text color based on status
+    Color borderColor;
+    Color pillBackgroundColor;
+    Color pillTextColor;
+    double borderWidth = 2.0;
+    
+    if (!hasBeenChecked) {
+      borderColor = Colors.orange; // Pending
+      pillBackgroundColor = Colors.orange.withOpacity(0.2); // Orange pill for pending
+      pillTextColor = Colors.orange[700]!; // Darker orange text
+    } else if (isWinner) {
+      borderColor = Colors.green; // Winner
+      pillBackgroundColor = Colors.green.withOpacity(0.2); // Green pill for winner
+      pillTextColor = Colors.green[700]!; // Darker green text
+    } else {
+      borderColor = Colors.red; // Not a winner
+      pillBackgroundColor = Color(0xFFA5362D).withOpacity(0.2); // Existing red-brown pill for not winner
+      pillTextColor = Color(0xFFA5362D); // Existing red-brown text
+    }
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Color(0xFFFFE8BE), // Original cream for ticket cards
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: !hasBeenChecked 
-            ? Colors.orange 
-            : isWinner 
-              ? Colors.green 
-              : Colors.grey[300]!,
+          color: borderColor,
+          width: borderWidth,
         ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Row(
-            children: [
-              Icon(
-                isWinner ? Icons.star : hasBeenChecked ? Icons.check_circle_outline : Icons.pending,
-                color: isWinner ? Colors.green : hasBeenChecked ? Colors.blue : Colors.orange,
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Ticket #$ticketNumber',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
+          // Ticket image with number overlay
+          Container(
+            width: 90,
+            height: 60,
+            decoration: BoxDecoration(
+              color: Colors.grey[300],
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey[400]!),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: FutureBuilder<File?>(
+                future: ImageStorageService.getTicketImage(imagePath.isNotEmpty ? imagePath : null),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return Center(
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.grey),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      !hasBeenChecked 
-                        ? 'Pending Results' 
-                        : isWinner 
-                          ? 'WINNER! ${winAmount > 0 ? "${winAmount.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')} VND" : "Check prize amount"}' 
-                          : 'Not a winner',
-                      style: TextStyle(
-                        color: !hasBeenChecked 
-                          ? Colors.orange 
-                          : isWinner 
-                            ? Colors.green 
-                            : Colors.grey[600],
-                        fontWeight: isWinner ? FontWeight.bold : FontWeight.normal,
-                        fontSize: 14,
+                    );
+                  }
+                  
+                  if (snapshot.hasData && snapshot.data != null) {
+                    return Image.file(
+                      snapshot.data!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return _buildPlaceholderIcon();
+                      },
+                    );
+                  } else {
+                    return _buildPlaceholderIcon();
+                  }
+                },
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          // Ticket info
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Row(
+                  children: [
+                    Spacer(), // Pushes pill to the right
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: pillBackgroundColor,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        '$count ticket${count > 1 ? 's' : ''}',
+                        style: TextStyle(
+                          color: pillTextColor,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ],
                 ),
-              ),
-              if (isWinner && winAmount > 0) ...[
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.green,
-                    borderRadius: BorderRadius.circular(12),
+                const SizedBox(height: 8),
+                Text(
+                  !hasBeenChecked 
+                    ? 'Pending Results' 
+                    : isWinner 
+                      ? 'Winner${winAmount > 0 ? " - ${winAmount.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')} VND" : ""}'
+                      : '#$ticketNumber',
+                  style: TextStyle(
+                    color: (!hasBeenChecked || isWinner) ? Colors.grey[700] : Colors.black87,
+                    fontSize: (!hasBeenChecked || isWinner) ? 15 : 22,
+                    fontWeight: (!hasBeenChecked || isWinner) ? FontWeight.w500 : FontWeight.w900,
                   ),
-                  child: Text(
-                    '🎉 WIN',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-              ] else if (!hasBeenChecked) ...[
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.orange,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Text(
-                    'PENDING',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                    ),
-                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 2,
                 ),
               ],
-            ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlaceholderIcon() {
+    return Container(
+      color: Colors.grey[200],
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.image_not_supported,
+            color: Colors.grey[500],
+            size: 24,
           ),
           const SizedBox(height: 4),
           Text(
-            'Draw Date: $drawDate',
+            'No Image',
             style: TextStyle(
               color: Colors.grey[600],
-              fontSize: 14,
+              fontSize: 10,
+              fontWeight: FontWeight.w500,
             ),
           ),
-          if (isWinner && matchedTiers.isNotEmpty) ...[
-            const SizedBox(height: 4),
-            Text(
-              'Winning Tiers: ${matchedTiers.join(', ')}',
-              style: TextStyle(
-                color: Colors.green[700],
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-          if (!hasBeenChecked) ...[
-            const SizedBox(height: 4),
-            Text(
-              'Status: Pending results',
-              style: TextStyle(
-                color: Colors.orange[700],
-                fontSize: 12,
-                fontStyle: FontStyle.italic,
-              ),
-            ),
-          ],
         ],
       ),
     );

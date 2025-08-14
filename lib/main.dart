@@ -21,6 +21,7 @@ import 'package:provider/provider.dart';
 import 'services/supabase_auth_service.dart';
 import 'services/notification_service.dart';
 import 'services/ticket_storage_service.dart';
+import 'services/image_storage_service.dart';
 import 'services/ad_service.dart';
 import 'services/language_service.dart';
 import 'screens/supabase_login_screen.dart';
@@ -56,6 +57,9 @@ void main() async {
   
   // Initialize AdMob
   await AdService.initialize();
+  
+  // Initialize image storage service
+  await ImageStorageService.initialize();
   
   // Initialize timezone data
   tz.initializeTimeZones();
@@ -277,6 +281,9 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
   // Banner ad state
   BannerAd? _bannerAd;
   bool _isBannerAdReady = false;
+  
+  // View state to track if we're showing results
+  bool _showingResults = false;
 
   @override
   void initState() {
@@ -483,6 +490,8 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
         isProcessing = false;
         // Close camera after taking photos
         _isCameraInitialized = false;
+        _showingResults = true; // Show results view with back arrow
+        print('🎯 Manual scan success: _showingResults set to true');
         
         // Reset winner checking state
         _isWinner = null;
@@ -1141,13 +1150,36 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
         rawText = '$rawText\n\nSTORING: City=$city, Region=$region, Date=$apiDate';
       });
       
-      // Store the ticket
+      // Save the ticket image first
+      String? savedImagePath;
+      try {
+        if (_processedImagePath != null && _processedImagePath!.isNotEmpty) {
+          final tempFile = File(_processedImagePath!);
+          if (await tempFile.exists()) {
+            final imageBytes = await tempFile.readAsBytes();
+            savedImagePath = await ImageStorageService.saveTicketImage(
+              imageBytes: imageBytes,
+              ticketId: '${ticketNumber}_${DateTime.now().millisecondsSinceEpoch}',
+            );
+            if (savedImagePath != null) {
+              print('✅ Ticket image saved permanently: $savedImagePath');
+              // Update the processed image path to the permanent location
+              _processedImagePath = savedImagePath;
+            }
+          }
+        }
+      } catch (e) {
+        print('❌ Error saving ticket image: $e');
+      }
+      
+      // Store the ticket with image path
       final success = await TicketStorageService.storeTicket(
         ticketNumber: ticketNumber,
         province: city,
         drawDate: apiDate,
         region: region,
         ocrRawText: rawText,
+        imagePath: savedImagePath,
       );
       
       if (success) {
@@ -1314,6 +1346,11 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
           _matchedTiers = (responseData['MatchedTiers'] as List?)?.cast<String>();
           _isCheckingWinner = false;
         });
+        
+        // Show popup if it's a winner
+        if (_isWinner == true) {
+          _showWinnerPopup();
+        }
 
       } else {
         throw Exception('API returned ${response.statusCode}: ${response.body}');
@@ -1337,6 +1374,150 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
     }
   }
   
+  void _showWinnerPopup() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: Color(0xFFFFE8BE),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: Color(0xFFFFE8BE), width: 3),
+          ),
+          content: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.celebration,
+                  color: Colors.green,
+                  size: 48,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  '🎉 CONGRATULATIONS! 🎉',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green[700],
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                if (_winAmount != null && _winAmount! > 0) ...[
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Column(
+                      children: [
+                        Text(
+                          'You won:',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.green[700],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '${NumberFormat.currency(locale: 'vi_VN', symbol: '₫').format(_winAmount)}',
+                          style: TextStyle(
+                            fontSize: 32,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green[700],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                if (_matchedTiers != null && _matchedTiers!.isNotEmpty) ...[
+                  Text(
+                    'Matched Tiers: ${_matchedTiers!.join(', ')}',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.green[600],
+                      fontWeight: FontWeight.w500,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                Container(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: Text(
+                      'Awesome!',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _goBackToCamera() {
+    setState(() {
+      _showingResults = false;
+      // Clear results to go back to camera view, but keep camera active
+      _processedImagePath = null;
+      city = 'Not found';
+      date = 'Not found';
+      ticketNumber = 'Not found';
+      _isWinner = null;
+      _winAmount = null;
+      _matchedTiers = null;
+      _winnerCheckError = null;
+      // Keep camera initialized but stop any auto-scanning
+      _stopAutoScanning();
+    });
+  }
+
+  void _goBackToMainPage() {
+    setState(() {
+      _showingResults = false;
+      _isCameraInitialized = false;
+      // Clear results and camera
+      _processedImagePath = null;
+      city = 'Not found';
+      date = 'Not found';
+      ticketNumber = 'Not found';
+      _isWinner = null;
+      _winAmount = null;
+      _matchedTiers = null;
+      _winnerCheckError = null;
+      // Stop auto-scanning if active
+      _stopAutoScanning();
+    });
+    
+    // Dispose camera
+    _cameraController?.dispose();
+    _cameraController = null;
+  }
+
   String? _getRegionForCity(String cityName) {
     if (_citiesData.isEmpty) return null;
     
@@ -1519,23 +1700,51 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
             _processedImagePath = result['imagePath'] ?? '';
             isProcessing = false;
             _isCameraInitialized = false;
+            _showingResults = true; // Show results view with back arrow
+            print('🎯 Auto-scan success: _showingResults set to true');
           });
           
           // Close camera
           _cameraController?.dispose();
           _cameraController = null;
           
-          // Always store ticket first, then check for winners
+          // Save image first, then store ticket with image path
           try {
             final region = TicketStorageService.getRegionForCity(cityResult, _citiesData);
             if (region != null) {
               final apiDate = TicketStorageService.convertDateToApiFormat(dateResult);
+              
+              // Save the ticket image first
+              String? savedImagePath;
+              try {
+                final tempImagePath = result['imagePath'] ?? '';
+                if (tempImagePath.isNotEmpty) {
+                  final tempFile = File(tempImagePath);
+                  if (await tempFile.exists()) {
+                    final imageBytes = await tempFile.readAsBytes();
+                    savedImagePath = await ImageStorageService.saveTicketImage(
+                      imageBytes: imageBytes,
+                      ticketId: '${ticketResult}_${DateTime.now().millisecondsSinceEpoch}',
+                    );
+                    if (savedImagePath != null) {
+                      print('✅ Ticket image saved permanently: $savedImagePath');
+                      // Update the processed image path to the permanent location
+                      _processedImagePath = savedImagePath;
+                    }
+                  }
+                }
+              } catch (e) {
+                print('❌ Error saving ticket image: $e');
+              }
+              
+              // Store ticket with image path
               final success = await TicketStorageService.storeTicket(
                 ticketNumber: ticketResult,
                 province: cityResult,
                 drawDate: apiDate,
                 region: region,
                 ocrRawText: result['rawText'] ?? '',
+                imagePath: savedImagePath,
               );
               
               if (success) {
@@ -1817,8 +2026,22 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(AppLocalizations.of(context)!.appTitle),
+        leading: (_showingResults || _isCameraInitialized) ? IconButton(
+          icon: Icon(Icons.arrow_back),
+          onPressed: () {
+            print('🔙 Back arrow pressed - showingResults: $_showingResults, cameraInitialized: $_isCameraInitialized');
+            if (_showingResults) {
+              print('🔙 Going back to camera');
+              _goBackToCamera();
+            } else {
+              print('🔙 Going back to main page');
+              _goBackToMainPage();
+            }
+          },
+        ) : null,
+        automaticallyImplyLeading: !(_showingResults || _isCameraInitialized),
       ),
-      drawer: Drawer(
+      drawer: _showingResults ? null : Drawer(
         backgroundColor: Color(0xFFFFE8BE), // Cream background
         child: ListView(
           padding: EdgeInsets.zero,
@@ -1919,7 +2142,7 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
               Container(
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  border: Border.all(color: Colors.green, width: 2),
+                  border: Border.all(color: Color(0xFFFFE8BE), width: 2),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: ClipRRect(
@@ -1938,11 +2161,11 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
                   ),
                 ),
               ),
-              SizedBox(height: 16),
+              SizedBox(height: 8),
             ],
             
-            // Banner ad (only visible during scanning)
-            if (_isAutoScanning && _isBannerAdReady && _bannerAd != null) ...[
+            // Banner ad (visible during scanning or when camera is active)
+            if ((_isAutoScanning || _isCameraInitialized) && _isBannerAdReady && _bannerAd != null) ...[
               Container(
                 alignment: Alignment.center,
                 width: _bannerAd!.size.width.toDouble(),
@@ -1952,6 +2175,35 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
               SizedBox(height: 16),
             ],
             
+            // Show scan button when not showing results and camera not initialized
+            if (!_showingResults && !_isCameraInitialized) ...[
+              Center(
+                child: ElevatedButton(
+                  onPressed: isProcessing ? null : () async {
+                    await _initializeCamera();
+                    // Start auto-scanning after camera initializes
+                    if (_isCameraInitialized) {
+                      await Future.delayed(Duration(milliseconds: 500));
+                      _startAutoScanning();
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Color(0xFFFFE8BE),
+                    foregroundColor: Colors.black87,
+                    padding: EdgeInsets.symmetric(horizontal: 48, vertical: 20),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text(
+                    isProcessing ? 'Processing...' : 'Scan a Ticket',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+              SizedBox(height: 20),
+            ],
+
             if (_isCameraInitialized && _cameraController != null) ...[
               // Full screen camera view
               Container(
@@ -2065,85 +2317,11 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
                   ),
                 ),
               ],
-            ] else ...[
-              // Simple scan button when camera not initialized
-              Center(
-                child: ElevatedButton(
-                  onPressed: isProcessing ? null : _scanAnother,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    foregroundColor: Colors.white,
-                    padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  child: Text(
-                    isProcessing ? AppLocalizations.of(context)!.processingImage : AppLocalizations.of(context)!.scanTicket,
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ),
-                        ],
+            ],
             
             SizedBox(height: 20),
             
-            // Demo buttons for production notifications
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () async {
-                      print('📱 Testing winner summary notification...');
-                      await NotificationService.showDailyWinnerSummary(
-                        date: '2025-08-10',
-                        winningTickets: [
-                          {
-                            'ticketNumber': '123456',
-                            'province': 'Tiền Giang',
-                            'winAmount': 100000,
-                            'matchedTiers': ['G8'],
-                          },
-                        ],
-                        losingTickets: [
-                          {
-                            'ticketNumber': '654321',
-                            'province': 'Tiền Giang',
-                          },
-                        ],
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
-                    child: Text('Test Winner'),
-                  ),
-                ),
-                SizedBox(width: 8),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () async {
-                      print('📱 Testing non-winner summary notification...');
-                      await NotificationService.showDailyNonWinnerSummary(
-                        date: '2025-08-10',
-                        losingTickets: [
-                          {
-                            'ticketNumber': '111111',
-                            'province': 'Tiền Giang',
-                          },
-                          {
-                            'ticketNumber': '222222',
-                            'province': 'An Giang',
-                          },
-                        ],
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.orange, foregroundColor: Colors.white),
-                    child: Text('Test Non-Winner'),
-                  ),
-                ),
-              ],
-            ),
-            
-            SizedBox(height: 20),
+
 
             
             // Action buttons when image is captured
@@ -2179,6 +2357,7 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
                             setState(() {
                               rawText = allText;
                               isProcessing = false;
+                              _showingResults = true; // Ensure we stay in results view
                               // Reset winner checking state
                               _isWinner = null;
                               _winAmount = null;
@@ -2207,19 +2386,32 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
             
             // Only show current results if we have some data or are processing
             if (isProcessing || city != 'Not found' || date != 'Not found' || ticketNumber != 'Not found') ...[
-              Text(
-                'CURRENT RESULTS:',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue),
-              ),
               
               if (isProcessing) ...[
-                Center(child: CircularProgressIndicator()),
-                SizedBox(height: 10),
-                Text('Processing image with OCR...', textAlign: TextAlign.center),
+                Card(
+                  color: Color(0xFFFFE8BE),
+                  child: Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Column(
+                      children: [
+                        CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFA5362D)),
+                        ),
+                        SizedBox(height: 16),
+                        Text(
+                          'Processing image with OCR...',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.black87,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ] else ...[
-                _buildResultRow('City:', city),
-                _buildResultRow('Date:', date),
-                _buildResultRow('Ticket Number:', ticketNumber),
+                _buildResultCard(),
               ],
               
               SizedBox(height: 20),
@@ -2228,91 +2420,77 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
             // Winner checking results
             if (isProcessing || city != 'Not found' || date != 'Not found' || ticketNumber != 'Not found') ...[
               if (_isCheckingWinner) ...[
-                Container(
-                  padding: EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.blue[50],
-                    border: Border.all(color: Colors.blue),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      CircularProgressIndicator(),
-                      SizedBox(width: 16),
-                      Expanded(
-                        child: Text(
-                          'Checking if ticket is a winner...',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                Card(
+                  color: Color(0xFFFFE8BE),
+                  child: Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFA5362D)),
                         ),
-                      ),
-                    ],
+                        SizedBox(width: 16),
+                        Expanded(
+                          child: Text(
+                            'Checking if ticket is a winner...',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 SizedBox(height: 20),
-              ] else if (_isWinner != null) ...[
-                Container(
-                  padding: EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: _isWinner! ? Colors.green[50] : Colors.grey[50],
-                    border: Border.all(
-                      color: _isWinner! ? Colors.green : Colors.grey,
-                      width: 2,
+              ] else if (_isWinner != null && _isWinner == false) ...[
+                Card(
+                  child: Container(
+                    padding: EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Color(0xFFFFE8BE),
+                      border: Border.all(
+                        color: Colors.red,
+                        width: 2,
+                      ),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            _isWinner! ? Icons.celebration : Icons.info,
-                            color: _isWinner! ? Colors.green : Colors.grey,
-                            size: 32,
-                          ),
-                          SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              _isWinner! ? '🎉 WINNER! 🎉' : 'Not a Winner',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: _isWinner! ? Colors.green : Colors.grey[700],
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.info,
+                              color: Colors.red,
+                              size: 24,
+                            ),
+                            SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                'Not a Winner',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.red[700],
+                                ),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                      if (_isWinner!) ...[
-                        SizedBox(height: 12),
-                        Text(
-                          'Congratulations! You have won:',
-                          style: TextStyle(fontSize: 16),
+                          ],
                         ),
-                        SizedBox(height: 8),
-                        Text(
-                          '${NumberFormat.currency(locale: 'vi_VN', symbol: '₫').format(_winAmount)}',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.green,
-                          ),
-                        ),
-                        if (_matchedTiers != null && _matchedTiers!.isNotEmpty) ...[
-                          SizedBox(height: 8),
-                          Text(
-                            'Matched Tiers: ${_matchedTiers!.join(', ')}',
-                            style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                          ),
-                        ],
-                      ] else ...[
                         SizedBox(height: 8),
                         Text(
                           'This ticket did not match any winning numbers.',
-                          style: TextStyle(fontSize: 16, color: Colors.grey[700]),
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.red[700],
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ],
-                    ],
+                    ),
                   ),
                 ),
                 SizedBox(height: 20),
@@ -2386,26 +2564,95 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
 
 
 
-  Widget _buildResultRow(String label, String actual) {
+  Widget _buildResultCard() {
+    return Card(
+      color: Color(0xFFFFE8BE), // Cream background like My Tickets
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildResultRow('City', city, Icons.location_city),
+            const SizedBox(height: 12),
+            _buildResultRow('Date', date, Icons.calendar_today),
+            const SizedBox(height: 12),
+            _buildResultRow('Ticket Number', ticketNumber, Icons.confirmation_number),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildResultRow(String label, String actual, IconData icon) {
     final isFound = actual != 'Not found';
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 4),
+    
+    // Determine status colors like My Tickets
+    Color statusColor;
+    Color borderColor;
+    if (!isFound) {
+      statusColor = Colors.red;
+      borderColor = Colors.red;
+    } else {
+      statusColor = Colors.green;
+      borderColor = Colors.green;
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: borderColor.withOpacity(0.3),
+          width: 1,
+        ),
+      ),
       child: Row(
         children: [
-          Text(label, style: TextStyle(fontWeight: FontWeight.bold)),
-          SizedBox(width: 8),
-          Text(
-            actual,
-            style: TextStyle(
-              color: isFound ? Colors.green : Colors.red,
-              fontWeight: FontWeight.bold,
+          Icon(
+            icon,
+            color: Color(0xFFA5362D),
+            size: 20,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  actual,
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: isFound ? Colors.black87 : Colors.red,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
             ),
           ),
-          SizedBox(width: 8),
-          Icon(
-            isFound ? Icons.check_circle : Icons.error,
-            color: isFound ? Colors.green : Colors.red,
-            size: 20,
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: statusColor.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              isFound ? 'Found' : 'Missing',
+              style: TextStyle(
+                color: statusColor == Colors.red ? Colors.red[700]! : Colors.green[700]!,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
         ],
       ),

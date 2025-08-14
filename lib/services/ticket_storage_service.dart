@@ -18,6 +18,7 @@ class TicketStorageService {
     required String drawDate,
     required String region,
     required String ocrRawText,
+    String? imagePath,
   }) async {
     try {
       final user = Supabase.instance.client.auth.currentUser;
@@ -43,6 +44,7 @@ class TicketStorageService {
         'userEmail': user.email ?? '',
         'scannedAt': DateTime.now().toUtc().toIso8601String(),
         'ocrRawText': ocrRawText,
+        'imagePath': imagePath ?? '', // Include image path
       };
 
       print('Storing ticket with payload: $payload');
