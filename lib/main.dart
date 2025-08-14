@@ -27,6 +27,7 @@ import 'screens/supabase_login_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/daily_summary_screen.dart';
 import 'screens/user_tickets_summary_screen.dart';
+import 'screens/todays_drawings_screen.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 late List<CameraDescription> cameras;
@@ -1818,9 +1819,9 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
               title: Text(AppLocalizations.of(context)!.todaysDrawings),
               onTap: () {
                 Navigator.pop(context);
-                // TODO: Navigate to Today's Drawings screen
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(AppLocalizations.of(context)!.comingSoon)),
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const TodaysDrawingsScreen()),
                 );
               },
             ),
