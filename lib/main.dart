@@ -29,6 +29,7 @@ import 'screens/settings_screen.dart';
 import 'screens/daily_summary_screen.dart';
 import 'screens/user_tickets_summary_screen.dart';
 import 'screens/todays_drawings_screen.dart';
+import 'screens/home_screen.dart';
 import 'widgets/vietnamese_tiled_background.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
@@ -188,6 +189,10 @@ class MyApp extends StatelessWidget {
             Locale('vi'), // Vietnamese
           ],
           home: AuthWrapper(),
+          routes: {
+            '/results': (context) => const TodaysDrawingsScreen(),
+            '/my-tickets': (context) => const UserTicketsSummaryScreen(),
+          },
         );
       },
     );
@@ -213,7 +218,7 @@ class AuthWrapper extends StatelessWidget {
         
         if (snapshot.hasData && snapshot.data?.session != null) {
           // User is signed in, show main app
-          return LotteryOCRScreen();
+          return HomeScreen();
         } else {
           // User is not signed in, show login screen
           return SupabaseLoginScreen();
