@@ -307,12 +307,15 @@ class _UserTicketsSummaryScreenState extends State<UserTicketsSummaryScreen> {
                   children: [
                     Icon(Icons.star, color: Color(0xFFFFE8BE), size: 16),
                     const SizedBox(width: 4),
-                    Text(
-                      'Total Winnings: ${totalWinnings.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')} VND',
-                      style: TextStyle(
-                        color: Color(0xFFFFE8BE),
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
+                    Expanded(
+                      child: Text(
+                        'Total Winnings: ${totalWinnings.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')} VND',
+                        style: TextStyle(
+                          color: Color(0xFFFFE8BE),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
@@ -485,93 +488,201 @@ class _UserTicketsSummaryScreenState extends State<UserTicketsSummaryScreen> {
           width: borderWidth,
         ),
       ),
-      child: Row(
-        children: [
-          // Ticket image with number overlay
-          Container(
-            width: 90,
-            height: 60,
-            decoration: BoxDecoration(
-              color: Colors.grey[300],
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.grey[400]!),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: FutureBuilder<File?>(
-                future: ImageStorageService.getTicketImage(imagePath.isNotEmpty ? imagePath : null),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return Center(
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.grey),
-                      ),
-                    );
-                  }
-                  
-                  if (snapshot.hasData && snapshot.data != null) {
-                    return Image.file(
-                      snapshot.data!,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return _buildPlaceholderIcon();
-                      },
-                    );
-                  } else {
-                    return _buildPlaceholderIcon();
-                  }
-                },
+      child: (hasBeenChecked && isWinner) 
+        ? Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // "WINNER" centered at the top
+              Center(
+                child: Text(
+                  'WINNER',
+                  style: TextStyle(
+                    color: Colors.green[700],
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
-            ),
-          ),
-          const SizedBox(width: 16),
-          // Ticket info
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Row(
-                  children: [
-                    Spacer(), // Pushes pill to the right
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: pillBackgroundColor,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+              const SizedBox(height: 8),
+              // Amount and pill on the same row
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // Amount on the left
+                  if (winAmount > 0)
+                    Expanded(
                       child: Text(
-                        '$count ticket${count > 1 ? 's' : ''}',
+                        '${winAmount.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')} VND',
                         style: TextStyle(
-                          color: pillTextColor,
-                          fontSize: 12,
+                          color: Colors.green[700],
+                          fontSize: 15,
                           fontWeight: FontWeight.w600,
                         ),
+                        overflow: TextOverflow.ellipsis,
                       ),
+                    ),
+                  // Pill on the right
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: pillBackgroundColor,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '$count ticket${count > 1 ? 's' : ''}',
+                      style: TextStyle(
+                        color: pillTextColor,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              // Image and ticket number row
+              Row(
+                children: [
+                  // Ticket image
+                  Container(
+                    width: 90,
+                    height: 60,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey[400]!),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: FutureBuilder<File?>(
+                        future: ImageStorageService.getTicketImage(imagePath.isNotEmpty ? imagePath : null),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState == ConnectionState.waiting) {
+                            return Center(
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.grey),
+                              ),
+                            );
+                          }
+                          
+                          if (snapshot.hasData && snapshot.data != null) {
+                            return Image.file(
+                              snapshot.data!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return _buildPlaceholderIcon();
+                              },
+                            );
+                          } else {
+                            return _buildPlaceholderIcon();
+                          }
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  // Ticket number
+                  Expanded(
+                    child: Text(
+                      '#$ticketNumber',
+                      style: TextStyle(
+                        color: Colors.black87,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          )
+        : Row(
+            children: [
+              // Ticket image (old horizontal layout for pending/not-winner)
+              Container(
+                width: 90,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey[400]!),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: FutureBuilder<File?>(
+                    future: ImageStorageService.getTicketImage(imagePath.isNotEmpty ? imagePath : null),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return Center(
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.grey),
+                          ),
+                        );
+                      }
+                      
+                      if (snapshot.hasData && snapshot.data != null) {
+                        return Image.file(
+                          snapshot.data!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return _buildPlaceholderIcon();
+                          },
+                        );
+                      } else {
+                        return _buildPlaceholderIcon();
+                      }
+                    },
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              // Ticket info (old horizontal layout)
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Row(
+                      children: [
+                        Spacer(), // Pushes pill to the right
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: pillBackgroundColor,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            '$count ticket${count > 1 ? 's' : ''}',
+                            style: TextStyle(
+                              color: pillTextColor,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    // Always show ticket number for pending/not-winner
+                    Text(
+                      '#$ticketNumber',
+                      style: TextStyle(
+                        color: Colors.black87,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  !hasBeenChecked 
-                    ? 'Pending Results' 
-                    : isWinner 
-                      ? 'Winner${winAmount > 0 ? " - ${winAmount.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')} VND" : ""}'
-                      : '#$ticketNumber',
-                  style: TextStyle(
-                    color: (!hasBeenChecked || isWinner) ? Colors.grey[700] : Colors.black87,
-                    fontSize: (!hasBeenChecked || isWinner) ? 15 : 22,
-                    fontWeight: (!hasBeenChecked || isWinner) ? FontWeight.w500 : FontWeight.w900,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 2,
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 

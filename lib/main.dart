@@ -2026,8 +2026,7 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(AppLocalizations.of(context)!.appTitle),
-        leading: (_showingResults || _isCameraInitialized) ? IconButton(
-          icon: Icon(Icons.arrow_back),
+        leading: (_showingResults || _isCameraInitialized) ? BackButton(
           onPressed: () {
             print('🔙 Back arrow pressed - showingResults: $_showingResults, cameraInitialized: $_isCameraInitialized');
             if (_showingResults) {
