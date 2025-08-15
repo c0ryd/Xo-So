@@ -179,7 +179,10 @@ class _UserTicketsSummaryScreenState extends State<UserTicketsSummaryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBodyBehindAppBar: true, // Let content go under AppBar
       appBar: AppBar(
+        backgroundColor: Colors.transparent, // Transparent AppBar
+        elevation: 0, // No shadow
         title: const Text('My Tickets'),
         actions: [
           IconButton(
@@ -189,7 +192,8 @@ class _UserTicketsSummaryScreenState extends State<UserTicketsSummaryScreen> {
         ],
       ),
       body: VietnameseTiledBackground(
-        child: _isLoading
+        child: SafeArea(
+          child: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _errorMessage != null
               ? Center(
@@ -237,6 +241,7 @@ class _UserTicketsSummaryScreenState extends State<UserTicketsSummaryScreen> {
                       ),
                     ),
         ),
+      ),
     );
   }
 

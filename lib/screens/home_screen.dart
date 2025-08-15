@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import '../widgets/vietnamese_tiled_background.dart';
-import 'camera_screen.dart';
+import 'camera_screen_clean.dart'; // Import the clean camera screen
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -9,48 +9,46 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBodyBehindAppBar: true, // Let content go under AppBar
       appBar: AppBar(
-        title: Text(AppLocalizations.of(context)!.appTitle),
+        backgroundColor: Colors.transparent, // Transparent AppBar
+        elevation: 0, // No shadow
+        title: const Text(''), // Empty title
       ),
       drawer: _buildDrawer(context),
       body: VietnameseTiledBackground(
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Scan button - updated with camera icon as requested
-              ElevatedButton(
-                onPressed: () {
+        child: Stack(
+          children: [
+            // Logo image that extends behind the AppBar
+            Positioned(
+              top: MediaQuery.of(context).size.height * 0.08, // 8% down from top (2% additional)
+              left: 0,
+              right: 0,
+              child: Image.asset(
+                'assets/images/text/xo so may manv2.png',
+                fit: BoxFit.contain,
+              ),
+            ),
+            // Button positioned with spacing for AppBar
+            Positioned(
+              top: MediaQuery.of(context).size.height * 0.35, // 35% down from top
+              left: 0,
+              right: 0,
+              child: GestureDetector(
+                onTap: () {
+                  // Navigate to camera screen
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => const CameraScreen()),
+                    MaterialPageRoute(builder: (context) => CameraScreen()),
                   );
                 },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Color(0xFFFFE8BE),
-                  foregroundColor: Colors.black87,
-                  padding: EdgeInsets.all(24), // Square padding
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16), // Rounded corners
-                  ),
-                  minimumSize: Size(80, 80), // Make it more square
-                ),
-                child: Icon(
-                  Icons.camera_alt,
-                  size: 32,
-                  color: Colors.black87,
+                child: Image.asset(
+                  'assets/images/button/appButton.png',
+                  fit: BoxFit.contain,
                 ),
               ),
-              SizedBox(height: 20),
-              Text(
-                'Tap to scan a lottery ticket',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.black87,
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

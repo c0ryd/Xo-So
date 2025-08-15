@@ -1187,7 +1187,7 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
       }
       
       // Store the ticket with image path
-      final ticketId = await TicketStorageService.storeTicket(
+      final success = await TicketStorageService.storeTicket(
         ticketNumber: ticketNumber,
         province: city,
         drawDate: apiDate,
@@ -1196,7 +1196,7 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
         imagePath: savedImagePath,
       );
       
-      if (ticketId != null) {
+      if (success) {
         setState(() {
           rawText = '$rawText\n\n✅ TICKET STORED FOR PROCESSING\nYou will be notified if you win after the drawing on $date!';
         });
@@ -1752,7 +1752,7 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
               }
               
               // Store ticket with image path
-              final ticketId = await TicketStorageService.storeTicket(
+              final success = await TicketStorageService.storeTicket(
                 ticketNumber: ticketResult,
                 province: cityResult,
                 drawDate: apiDate,
@@ -1761,7 +1761,7 @@ class _LotteryOCRScreenState extends State<LotteryOCRScreen> {
                 imagePath: savedImagePath,
               );
               
-              if (ticketId != null) {
+              if (success) {
                 print('Ticket stored successfully in auto-scan!');
               }
               

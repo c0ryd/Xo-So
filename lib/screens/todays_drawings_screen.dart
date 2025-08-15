@@ -60,11 +60,15 @@ class _TodaysDrawingsScreenState extends State<TodaysDrawingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBodyBehindAppBar: true, // Let content go under AppBar
       appBar: AppBar(
+        backgroundColor: Colors.transparent, // Transparent AppBar
+        elevation: 0, // No shadow
         title: const Text('Results'),
       ),
       body: VietnameseTiledBackground(
-        child: Column(
+        child: SafeArea(
+          child: Column(
           children: [
             // Calendar
             Container(
@@ -108,6 +112,7 @@ class _TodaysDrawingsScreenState extends State<TodaysDrawingsScreen> {
             ),
             SizedBox(height: 16),
           ],
+        ),
         ),
       ),
     );

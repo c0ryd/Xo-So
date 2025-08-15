@@ -86,6 +86,8 @@ flutter:
   assets:
     - assets/images/
     - assets/images/backgrounds/
+    - assets/images/button/
+    - assets/images/text/
     - assets/cities.json
     - assets/province_schedule.json
 

@@ -93,11 +93,16 @@ class _ProvinceResultsScreenState extends State<ProvinceResultsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBodyBehindAppBar: true, // Let content go under AppBar
       appBar: AppBar(
+        backgroundColor: Colors.transparent, // Transparent AppBar
+        elevation: 0, // No shadow
         title: Text('${widget.province} Results'),
       ),
       body: VietnameseTiledBackground(
-        child: _buildContent(),
+        child: SafeArea(
+          child: _buildContent(),
+        ),
       ),
     );
   }
