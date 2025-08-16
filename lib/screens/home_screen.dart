@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import '../widgets/vietnamese_tiled_background.dart';
+import '../services/supabase_auth_service.dart';
 import 'camera_screen_clean.dart'; // Import the clean camera screen
 
 class HomeScreen extends StatelessWidget {
@@ -120,6 +121,23 @@ class HomeScreen extends StatelessWidget {
             onTap: () {
               // TODO: Implement language toggle
               Navigator.pop(context);
+            },
+          ),
+          // Logout button
+          ListTile(
+            leading: Icon(Icons.logout, color: Colors.black87),
+            title: Text(
+              'Logout',
+              style: TextStyle(color: Colors.black87),
+            ),
+            onTap: () {
+              Navigator.pop(context);
+              SupabaseAuthService().signOut().then((_) {
+                // Successfully logged out
+                print('✅ User logged out successfully');
+              }).catchError((error) {
+                print('❌ Logout error: $error');
+              });
             },
           ),
         ],

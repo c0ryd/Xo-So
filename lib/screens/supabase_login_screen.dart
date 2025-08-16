@@ -356,7 +356,7 @@ class _SupabaseLoginScreenState extends State<SupabaseLoginScreen> {
 
                 const SizedBox(height: 20),
                 Text(
-                  'Other sign-in options (coming soon)',
+                  'Or continue with',
                   style: TextStyle(
                     fontSize: 14,
                     color: Colors.grey[500],
@@ -365,14 +365,14 @@ class _SupabaseLoginScreenState extends State<SupabaseLoginScreen> {
                 ),
                 const SizedBox(height: 12),
 
-                // Apple Sign In button (disabled for now)
+                // Apple Sign In button
                 ElevatedButton.icon(
-                  onPressed: null, // Disabled for now
-                  icon: const Icon(Icons.apple, size: 24),
-                  label: const Text('Continue with Apple (Setup required)'),
+                  onPressed: _isLoading ? null : _signInWithApple,
+                  icon: const Icon(Icons.apple, size: 24, color: Colors.white),
+                  label: const Text('Continue with Apple'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.grey[300],
-                    foregroundColor: Colors.grey[600],
+                    backgroundColor: Colors.black,
+                    foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
