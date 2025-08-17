@@ -48,6 +48,8 @@ dependencies:
   # Supabase & Authentication packages
   supabase_flutter: ^2.3.4
   sign_in_with_apple: ^6.1.1
+  app_links: ^6.3.2  # Deep link handling for OAuth callbacks
+  url_launcher: ^6.3.1  # Required for OAuth web flow
   # google_sign_in: ^6.2.1  # Temporary removed due to ML Kit conflict
   
   # Push notifications using AWS SNS + local notifications

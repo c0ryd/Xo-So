@@ -18,6 +18,7 @@ import 'package:amazon_cognito_identity_dart_2/sig_v4.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:provider/provider.dart';
+import 'package:app_links/app_links.dart';
 import 'services/supabase_auth_service.dart';
 import 'services/notification_service.dart';
 import 'services/ticket_storage_service.dart';
@@ -54,6 +55,9 @@ void main() async {
     anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ6dWd2d3RoeXljc3pob2hldGxjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQzMDQyNTQsImV4cCI6MjA2OTg4MDI1NH0.CIluaTZ6sgEugrsftY6iCVyXXoqOFH-vUOi3Rh_vAfc',
   );
   
+  // Initialize deep link handling for OAuth callbacks
+  _initializeDeepLinkHandling();
+  
   // Initialize Firebase and push notifications
   await NotificationService.initialize();
   
@@ -73,6 +77,22 @@ void main() async {
       child: MyApp(),
     ),
   );
+}
+
+// Initialize deep link handling for OAuth callbacks
+void _initializeDeepLinkHandling() {
+  final AppLinks appLinks = AppLinks();
+  
+  // Listen for incoming deep links when app is already running
+  appLinks.uriLinkStream.listen((Uri uri) {
+    print('🔗 Received deep link: $uri');
+    if (uri.scheme == 'com.cdawson.xoso' && uri.host == 'login-callback') {
+      print('🔑 OAuth callback received - Supabase will handle authentication');
+      // Supabase SDK will automatically handle the OAuth callback
+    }
+  }, onError: (Object err) {
+    print('❌ Deep link error: $err');
+  });
 }
 
 // Custom painter for lottery ticket overlay frame

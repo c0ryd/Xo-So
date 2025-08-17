@@ -1,12 +1,9 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
-// import 'package:google_sign_in/google_sign_in.dart';  // Temporarily removed due to ML Kit conflict
+import 'package:url_launcher/url_launcher.dart' show LaunchMode;
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 class SupabaseAuthService {
   final SupabaseClient _supabase = Supabase.instance.client;
-  // final GoogleSignIn _googleSignIn = GoogleSignIn(  // Temporarily removed
-  //   serverClientId: '', // We'll set this up later
-  // );
 
   // Get current user
   User? get currentUser => _supabase.auth.currentUser;
@@ -92,39 +89,20 @@ class SupabaseAuthService {
     }
   }
 
-  // Sign in with Google - TEMPORARILY DISABLED
+  // Sign in with Google via Supabase OAuth (opens external browser on iOS for smoother UX)
   Future<AuthResponse?> signInWithGoogle() async {
-    throw Exception('Google Sign In temporarily disabled due to dependency conflicts');
-    /*
     try {
-      // Start the sign-in process
-      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-      
-      if (googleUser == null) {
-        // User cancelled the sign-in
-        return null;
-      }
-
-      // Get authentication details
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
-
-      if (googleAuth.idToken == null || googleAuth.accessToken == null) {
-        throw Exception('Failed to get Google authentication tokens');
-      }
-
-      // Sign in to Supabase with Google credential
-      final authResponse = await _supabase.auth.signInWithIdToken(
-        provider: OAuthProvider.google,
-        idToken: googleAuth.idToken!,
-        accessToken: googleAuth.accessToken!,
+      await _supabase.auth.signInWithOAuth(
+        OAuthProvider.google,
+        redirectTo: 'com.cdawson.xoso://login-callback',
+        authScreenLaunchMode: LaunchMode.externalApplication,
       );
-
-      return authResponse;
+      // OAuth completes via deep link and authStateChanges
+      return null;
     } catch (e) {
-      print('Google Sign In Error: $e');
+      print('❌ Google OAuth Sign In Error: $e');
       rethrow;
     }
-    */
   }
 
   // Sign in with phone number (OTP)

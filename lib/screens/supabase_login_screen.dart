@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/supabase_auth_service.dart';
+import 'home_screen.dart';
 import '../widgets/vietnamese_tiled_background.dart';
 import 'password_recovery_screen.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
@@ -24,9 +27,39 @@ class _SupabaseLoginScreenState extends State<SupabaseLoginScreen> {
   bool _obscurePassword = true;
   String? _pendingPhone;
   String? _errorMessage;
+  StreamSubscription<AuthState>? _authSubscription;
+  Timer? _googleSignInTimeout;
+
+  @override
+  void initState() {
+    super.initState();
+    // Listen to auth state changes to clear loading state when OAuth succeeds
+    _authSubscription = _authService.authStateChanges.listen((AuthState authState) {
+      if (mounted && authState.session != null) {
+        // Authentication succeeded - clear loading state and timeout
+        _googleSignInTimeout?.cancel();
+        // The main AuthWrapper will handle navigation
+        setState(() {
+          _isLoading = false;
+          _errorMessage = null;
+        });
+        // Proactively navigate to Home to avoid waiting for sheet dismissal
+        // If Home is already showing via AuthWrapper, this will be a no-op visually
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => HomeScreen()),
+            (route) => false,
+          );
+        });
+      }
+    });
+  }
 
   @override
   void dispose() {
+    _authSubscription?.cancel();
+    _googleSignInTimeout?.cancel();
     _emailController.dispose();
     _passwordController.dispose();
     _phoneController.dispose();
@@ -122,15 +155,44 @@ class _SupabaseLoginScreenState extends State<SupabaseLoginScreen> {
 
   Future<void> _signInWithGoogle() async {
     _setLoading(true);
+    
+    // Cancel any existing timeout
+    _googleSignInTimeout?.cancel();
+    
+    // Set up shorter timeout since OAuth often completes but web view gets stuck
+    _googleSignInTimeout = Timer(Duration(seconds: 15), () {
+      if (mounted && _isLoading) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = null; // Don't show error - likely succeeded but web view stuck
+        });
+        // Show a helpful message instead
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Google sign-in may have completed. If you\'re not logged in, please try again.'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    });
+    
     try {
       final result = await _authService.signInWithGoogle();
+      // For OAuth web flow, result is null by design - auth comes via onAuthStateChange
       if (result != null && result.user != null) {
-        // Success - navigation will be handled by auth state listener
+        // This path is for direct authentication (not used in OAuth web flow)
         print('Google Sign In successful: ${result.user?.email}');
+        _googleSignInTimeout?.cancel();
+        _setLoading(false);
       } else {
-        _showError('Google Sign In was cancelled');
+        // OAuth web flow initiated successfully - wait for auth state change
+        print('Google OAuth flow initiated - waiting for callback...');
+        // Don't show error or stop loading - let auth state listener handle navigation
+        // Timeout will handle stuck states
       }
     } catch (e) {
+      _googleSignInTimeout?.cancel();
       _showError('Google Sign In failed: ${e.toString()}');
     }
   }
@@ -379,18 +441,52 @@ class _SupabaseLoginScreenState extends State<SupabaseLoginScreen> {
                 ),
                 const SizedBox(height: 8),
 
-                // Google Sign In button (disabled for now)
+                // Google Sign In button (Supabase OAuth web flow)
                 ElevatedButton.icon(
-                  onPressed: null, // Disabled for now
-                  icon: const Icon(Icons.g_mobiledata, size: 24),
-                  label: const Text('Continue with Google (Setup required)'),
+                  onPressed: _isLoading ? null : _signInWithGoogle,
+                  icon: _isLoading 
+                    ? SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Icon(Icons.g_mobiledata, size: 24, color: Colors.white),
+                  label: Text(_isLoading ? 'Signing in...' : 'Continue with Google'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.grey[300],
-                    foregroundColor: Colors.grey[600],
+                    backgroundColor: const Color(0xFF4285F4),
+                    foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
                 ),
+                
+                // Helpful note for OAuth flow
+                if (_isLoading) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.blue[50],
+                      border: Border.all(color: Colors.blue[200]!),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.info_outline, color: Colors.blue[700], size: 16),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'If the browser window appears blank, press "Done" to continue. Sign-in works in the background.',
+                            style: TextStyle(
+                              color: Colors.blue[700],
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
 
                 const SizedBox(height: 32),
                 
