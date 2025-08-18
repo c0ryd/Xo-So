@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/supabase_auth_service.dart';
+import '../services/language_service.dart';
 import 'home_screen.dart';
 import '../widgets/vietnamese_tiled_background.dart';
 import 'password_recovery_screen.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:provider/provider.dart';
 
 class SupabaseLoginScreen extends StatefulWidget {
   const SupabaseLoginScreen({super.key});
@@ -115,7 +117,7 @@ class _SupabaseLoginScreenState extends State<SupabaseLoginScreen> {
     }
 
     if (_emailController.text.trim().isEmpty || _passwordController.text.trim().isEmpty) {
-      _showError('Please enter both email and password');
+      _showError(AppLocalizations.of(context)!.pleaseEnterEmailPassword);
       return;
     }
 
@@ -141,12 +143,12 @@ class _SupabaseLoginScreenState extends State<SupabaseLoginScreen> {
 
   Future<void> _signUpWithEmail() async {
     if (_emailController.text.trim().isEmpty || _passwordController.text.trim().isEmpty) {
-      _showError('Please enter both email and password');
+      _showError(AppLocalizations.of(context)!.pleaseEnterEmailPassword);
       return;
     }
 
     if (_passwordController.text.length < 6) {
-      _showError('Password must be at least 6 characters');
+      _showError(AppLocalizations.of(context)!.passwordMinLength);
       return;
     }
 
@@ -220,11 +222,11 @@ class _SupabaseLoginScreenState extends State<SupabaseLoginScreen> {
 
   String _getPrimaryButtonLabel() {
     if (_isPhoneMode && !_showOtpInput) {
-      return _isSignUpMode ? 'Send OTP' : 'Send OTP';
+      return AppLocalizations.of(context)!.sendOtp;
     } else if (_isPhoneMode && _showOtpInput) {
-      return _isSignUpMode ? 'Verify & Sign Up' : 'Verify & Sign In';
+      return _isSignUpMode ? AppLocalizations.of(context)!.verifySignUp : AppLocalizations.of(context)!.verifySignIn;
     } else {
-      return _isSignUpMode ? 'Create Account' : 'Sign In';
+      return _isSignUpMode ? AppLocalizations.of(context)!.createAccount : AppLocalizations.of(context)!.signIn;
     }
   }
 
@@ -409,13 +411,16 @@ class _SupabaseLoginScreenState extends State<SupabaseLoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: VietnameseTiledBackground(
-        child: SafeArea(
+        child: Stack(
+          children: [
+            // Main login content
+            SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-            SizedBox(height: MediaQuery.of(context).size.height * 0.02),
+                                  children: [
+              SizedBox(height: MediaQuery.of(context).size.height * 0.02),
             const SizedBox(height: 20),
                   Center(
                     child: Image.asset(
@@ -461,7 +466,7 @@ class _SupabaseLoginScreenState extends State<SupabaseLoginScreen> {
                     _buildInputField(
                       controller: _emailController,
                       icon: _isPhoneMode ? Icons.phone : Icons.email,
-                      hint: _isPhoneMode ? 'Phone (+1234567890)' : 'Email/Phone',
+                                                hint: _isPhoneMode ? AppLocalizations.of(context)!.phone : AppLocalizations.of(context)!.emailPhone,
                       keyboardType: _isPhoneMode ? TextInputType.phone : TextInputType.emailAddress,
                     ),
                     const SizedBox(height: 16),
@@ -471,7 +476,7 @@ class _SupabaseLoginScreenState extends State<SupabaseLoginScreen> {
                       _buildInputField(
                         controller: _passwordController,
                         icon: Icons.sms,
-                        hint: 'Enter OTP',
+                        hint: AppLocalizations.of(context)!.enterOtp,
                         keyboardType: TextInputType.number,
                       ),
                       const SizedBox(height: 8),
@@ -480,8 +485,8 @@ class _SupabaseLoginScreenState extends State<SupabaseLoginScreen> {
                         children: [
                           TextButton(
                             onPressed: _resetPhoneAuth,
-                            child: const Text(
-                              '← Back',
+                            child: Text(
+                              AppLocalizations.of(context)!.back,
                               style: TextStyle(color: Color(0xFFFFD966)),
                             ),
                           ),
@@ -490,8 +495,8 @@ class _SupabaseLoginScreenState extends State<SupabaseLoginScreen> {
                               // Resend OTP
                               _isSignUpMode ? _signUpWithPhone() : _sendOtpForSignIn();
                             },
-                            child: const Text(
-                              'Resend OTP',
+                            child: Text(
+                              AppLocalizations.of(context)!.resendOtp,
                               style: TextStyle(color: Color(0xFFFFD966)),
                             ),
                           ),
@@ -501,7 +506,7 @@ class _SupabaseLoginScreenState extends State<SupabaseLoginScreen> {
                       _buildInputField(
                         controller: _passwordController,
                         icon: Icons.lock,
-                        hint: 'Password',
+                                                    hint: AppLocalizations.of(context)!.password,
                         isPassword: true,
                       ),
                     ],
@@ -537,10 +542,10 @@ class _SupabaseLoginScreenState extends State<SupabaseLoginScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(
-                    _isSignUpMode ? 'Already have an account?' : 'Don\'t have an account?',
-                    style: const TextStyle(color: Colors.white70),
-                  ),
+                                        Text(
+                        _isSignUpMode ? AppLocalizations.of(context)!.alreadyHaveAccount : AppLocalizations.of(context)!.dontHaveAccount,
+                        style: const TextStyle(color: Colors.white70),
+                      ),
                   TextButton(
                     onPressed: () {
                       setState(() {
@@ -548,8 +553,8 @@ class _SupabaseLoginScreenState extends State<SupabaseLoginScreen> {
                         _errorMessage = null;
                       });
                     },
-                    child: Text(
-                      _isSignUpMode ? 'Sign In' : 'Sign Up',
+                    child:                       Text(
+                        _isSignUpMode ? AppLocalizations.of(context)!.signIn : AppLocalizations.of(context)!.signUp,
                       style: const TextStyle(
                         color: Color(0xFFFFD966),
                         fontWeight: FontWeight.w600,
@@ -560,7 +565,7 @@ class _SupabaseLoginScreenState extends State<SupabaseLoginScreen> {
               ),
 
               const SizedBox(height: 16),
-              _buildOrDivider('or continue with'),
+              _buildOrDivider(AppLocalizations.of(context)!.orContinueWith),
               const SizedBox(height: 16),
 
               _buildAppleButton(_isLoading ? null : _signInWithApple),
@@ -571,8 +576,59 @@ class _SupabaseLoginScreenState extends State<SupabaseLoginScreen> {
             ],
           ),
         ),
+            ),
+            // Floating language switcher in upper right corner
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 10, // Account for status bar
+              right: 16,
+              child: Consumer<LanguageService>(
+                builder: (context, languageService, child) {
+                  final isVietnamese = languageService.currentLocale.languageCode == 'vi';
+                  return GestureDetector(
+                    onTap: () {
+                      languageService.toggleLanguage();
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Color(0xFFFFD966).withOpacity(0.3)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.2),
+                            blurRadius: 8,
+                            offset: Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            isVietnamese ? '🇻🇳' : '🇺🇸',
+                            style: TextStyle(fontSize: 18),
+                          ),
+                          SizedBox(width: 4),
+                          Text(
+                            isVietnamese ? 'VI' : 'EN',
+                            style: TextStyle(
+                              color: Color(0xFFFFD966),
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
-    ));
+    );
   }
 
   Widget _buildInputField({
@@ -650,7 +706,7 @@ class _SupabaseLoginScreenState extends State<SupabaseLoginScreen> {
     return ElevatedButton.icon(
       onPressed: onPressed,
       icon: const Icon(Icons.apple, size: 24, color: Colors.white),
-      label: const Text('Continue with Apple'),
+      label: Text(AppLocalizations.of(context)!.continueWithApple),
       style: ElevatedButton.styleFrom(
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
@@ -681,7 +737,7 @@ class _SupabaseLoginScreenState extends State<SupabaseLoginScreen> {
             child: const Center(child: Text('G', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
           ),
           const SizedBox(width: 10),
-          Text(loading ? 'Signing in...' : 'Continue with Google', style: const TextStyle(fontWeight: FontWeight.w600)),
+          Text(loading ? AppLocalizations.of(context)!.signingIn : AppLocalizations.of(context)!.continueWithGoogle, style: const TextStyle(fontWeight: FontWeight.w600)),
         ],
       ),
     );

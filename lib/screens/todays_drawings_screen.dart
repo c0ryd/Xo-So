@@ -64,7 +64,7 @@ class _TodaysDrawingsScreenState extends State<TodaysDrawingsScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent, // Transparent AppBar
         elevation: 0, // No shadow
-        title: const Text('Results', style: TextStyle(color: Color(0xFFFFD966))),
+        title: Text(AppLocalizations.of(context)!.todaysDrawingsTitle, style: TextStyle(color: Color(0xFFFFD966))),
         iconTheme: IconThemeData(color: Color(0xFFFFD966)), // Gold back button
       ),
       body: VietnameseTiledBackground(
@@ -276,7 +276,7 @@ class _TodaysDrawingsScreenState extends State<TodaysDrawingsScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Provinces with drawings on ${_formatSelectedDate()}:',
+          '${AppLocalizations.of(context)!.provincesWithDrawings} ${_formatSelectedDate()}:',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
@@ -288,7 +288,7 @@ class _TodaysDrawingsScreenState extends State<TodaysDrawingsScreen> {
           child: _selectedDayProvinces.isEmpty
               ? Center(
                   child: Text(
-                    'No drawings scheduled for this day',
+                    AppLocalizations.of(context)!.noDrawingsScheduled,
                     style: TextStyle(
                       color: Colors.white.withOpacity(0.8),
                       fontSize: 14,
@@ -336,7 +336,7 @@ class _TodaysDrawingsScreenState extends State<TodaysDrawingsScreen> {
                             SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                province,
+                                _getDisplayProvinceName(province),
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w500,
@@ -378,5 +378,55 @@ class _TodaysDrawingsScreenState extends State<TodaysDrawingsScreen> {
 
   bool _isSameDay(DateTime a, DateTime b) {
     return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
+  String _getDisplayProvinceName(String province) {
+    // Map province names to proper Vietnamese with accents
+    // This mapping should be used for both English and Vietnamese display
+    const provinceMap = {
+      'An Giang': 'An Giang',
+      'Bac Lieu': 'Bạc Liêu',
+      'Bac Ninh': 'Bắc Ninh',
+      'Ben Tre': 'Bến Tre',
+      'Binh Dinh': 'Bình Định',
+      'Binh Duong': 'Bình Dương',
+      'Binh Phuoc': 'Bình Phước',
+      'Binh Thuan': 'Bình Thuận',
+      'Ca Mau': 'Cà Mau',
+      'Can Tho': 'Cần Thơ',
+      'Da Lat': 'Đà Lạt',
+      'Da Nang': 'Đà Nẵng',
+      'Dak Lak': 'Đắk Lắk',
+      'Dak Nong': 'Đắk Nông',
+      'Dong Nai': 'Đồng Nai',
+      'Dong Thap': 'Đồng Tháp',
+      'Gia Lai': 'Gia Lai',
+      'Hai Phong': 'Hải Phòng',
+      'Hanoi': 'Hà Nội',
+      'Hau Giang': 'Hậu Giang',
+      'Ho Chi Minh': 'Hồ Chí Minh',
+      'Hue': 'Huế',
+      'Khanh Hoa': 'Khánh Hòa',
+      'Kien Giang': 'Kiên Giang',
+      'Kon Tum': 'Kon Tum',
+      'Long An': 'Long An',
+      'Nam Dinh': 'Nam Định',
+      'Ninh Thuan': 'Ninh Thuận',
+      'Phu Yen': 'Phú Yên',
+      'Quang Binh': 'Quảng Bình',
+      'Quang Nam': 'Quảng Nam',
+      'Quang Ngai': 'Quảng Ngãi',
+      'Quang Ninh': 'Quảng Ninh',
+      'Quang Tri': 'Quảng Trị',
+      'Soc Trang': 'Sóc Trăng',
+      'Tay Ninh': 'Tây Ninh',
+      'Thai Binh': 'Thái Bình',
+      'Tien Giang': 'Tiền Giang',
+      'Tra Vinh': 'Trà Vinh',
+      'Vinh Long': 'Vĩnh Long',
+      'Vung Tau': 'Vũng Tàu',
+    };
+    
+    return provinceMap[province] ?? province;
   }
 }

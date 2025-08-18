@@ -62,6 +62,7 @@ dependencies:
   google_mobile_ads: ^5.1.0
 
 dev_dependencies:
+  flutter_launcher_icons: ^0.14.1
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
@@ -118,3 +119,25 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+# App icon configuration
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/images/button/appIcon.png"
+  adaptive_icon_background: "#91000c"
+  adaptive_icon_foreground: "assets/images/button/appIcon.png"
+  min_sdk_android: 21
+  remove_alpha_ios: true
+  web:
+    generate: true
+    image_path: "assets/images/button/appIcon.png"
+    background_color: "#91000c"
+  windows:
+    generate: true
+    image_path: "assets/images/button/appIcon.png"
+    background_color: "#91000c"
+  macos:
+    generate: true
+    image_path: "assets/images/button/appIcon.png"
+    background_color: "#91000c"

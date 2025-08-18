@@ -17,6 +17,7 @@ import '../services/ad_service.dart';
 import '../widgets/vietnamese_tiled_background.dart';
 import '../main.dart'; // For cameras list
 import 'scan_results_screen.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:amazon_cognito_identity_dart_2/cognito.dart';
 import 'package:amazon_cognito_identity_dart_2/sig_v4.dart';
 import 'package:http/http.dart' as http;
@@ -393,6 +394,10 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
 
       if (foundCount == 3) {
         print('=== AUTO-SCAN SUCCESS (VOTED)! Found $foundCount/3 fields ===');
+        
+        // Vibrate to indicate successful scan
+        HapticFeedback.mediumImpact();
+        
         _stopAutoScanning();
         setState(() {
           city = cityResult;
@@ -955,7 +960,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
       appBar: AppBar(
         backgroundColor: Colors.transparent, // Transparent AppBar
         elevation: 0, // No shadow
-        title: Text('Scan Ticket', style: TextStyle(color: Color(0xFFFFD966))),
+        title: Text(AppLocalizations.of(context)!.scanTicketButton, style: TextStyle(color: Color(0xFFFFD966))),
         iconTheme: IconThemeData(color: Color(0xFFFFD966)), // Gold back button
         leading: (_isCameraInitialized) ? BackButton(
           color: Color(0xFFFFD966), // Gold back button
@@ -1073,7 +1078,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                           ),
                           SizedBox(width: 12),
                           Text(
-                            'Auto-Scanning...',
+                            AppLocalizations.of(context)!.autoScanning,
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
@@ -1084,7 +1089,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                       ),
                       SizedBox(height: 8),
                       Text(
-                        'Found: ${_getFoundFieldsText()}',
+                        '${AppLocalizations.of(context)!.found}: ${_getFoundFieldsText()}',
                         style: TextStyle(
                           fontSize: 14,
                           color: Colors.white.withOpacity(0.8),
@@ -1104,7 +1109,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                           ),
                         ),
                         child: Text(
-                          'Stop Scanning',
+                          AppLocalizations.of(context)!.stopScanning,
                           style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                         ),
                       ),
@@ -1123,6 +1128,9 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                     child: ElevatedButton(
                       onPressed: isProcessing ? null : () async {
                         if (_processedImagePath != null) {
+                          // Light haptic feedback for manual scan start
+                          HapticFeedback.lightImpact();
+                          
                           setState(() {
                             isProcessing = true;
                           });
@@ -1139,6 +1147,9 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                             rawText = allText;
                             isProcessing = false;
                           });
+                          
+                          // Medium haptic feedback when manual scan completes
+                          HapticFeedback.mediumImpact();
                         }
                       },
                       style: ElevatedButton.styleFrom(
@@ -1269,13 +1280,13 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                             children: [
                               Row(
                                 children: [
-                                  Expanded(child: _buildSimpleField('Province', city, Icons.location_on)),
+                                  Expanded(child: _buildSimpleField(AppLocalizations.of(context)!.province, city, Icons.location_on)),
                                   SizedBox(width: 8),
-                                  Expanded(child: _buildSimpleField('Date', date, Icons.calendar_today)),
+                                  Expanded(child: _buildSimpleField(AppLocalizations.of(context)!.date, date, Icons.calendar_today)),
                                 ],
                               ),
                               SizedBox(height: 8),
-                              _buildSimpleField('Ticket Number', ticketNumber, Icons.confirmation_number),
+                              _buildSimpleField(AppLocalizations.of(context)!.ticketNumber, ticketNumber, Icons.confirmation_number),
                             ],
                           ),
                         ),
@@ -1293,7 +1304,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                           child: Column(
                             children: [
                               Text(
-                                'Quantity',
+                                AppLocalizations.of(context)!.quantity,
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w500,
@@ -1398,7 +1409,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                                   ),
                                 ),
                                 child: Text(
-                                  'Scan Another',
+                                  AppLocalizations.of(context)!.scanAnother,
                                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                                 ),
                               ),
@@ -1434,7 +1445,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                                   ),
                                 ),
                                 child: Text(
-                                  'Done',
+                                  AppLocalizations.of(context)!.done,
                                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                                 ),
                               ),
@@ -1665,6 +1676,9 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
 
   /// Show winner popup dialog
   void _showWinnerPopup(int? winAmount, List<String>? matchedTiers) {
+    // Vibrate with a strong impact for winning tickets
+    HapticFeedback.heavyImpact();
+    
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -1742,7 +1756,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                 Navigator.of(context).pop();
               },
               child: Text(
-                'Amazing!',
+                AppLocalizations.of(context)!.amazing,
                 style: TextStyle(
                   color: Color(0xFFFFD966),
                   fontWeight: FontWeight.bold,

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:provider/provider.dart';
 import '../widgets/vietnamese_tiled_background.dart';
 import '../services/lottery_results_service.dart';
+import '../services/language_service.dart';
 
 class ProvinceResultsScreen extends StatefulWidget {
   final String province;
@@ -97,7 +99,7 @@ class _ProvinceResultsScreenState extends State<ProvinceResultsScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent, // Transparent AppBar
         elevation: 0, // No shadow
-        title: Text('${widget.province} Results', style: TextStyle(color: Color(0xFFFFD966))),
+        title: Text('${_getDisplayProvinceName(widget.province)} ${AppLocalizations.of(context)!.todaysDrawings}', style: TextStyle(color: Color(0xFFFFD966))),
         iconTheme: IconThemeData(color: Color(0xFFFFD966)), // Gold back button
       ),
       body: VietnameseTiledBackground(
@@ -119,9 +121,9 @@ class _ProvinceResultsScreenState extends State<ProvinceResultsScreen> {
                 valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFA5362D)),
               ),
               SizedBox(height: 16),
-              Text(
-                'Loading results...',
-                style: TextStyle(
+                              Text(
+                  AppLocalizations.of(context)!.loading,
+                  style: TextStyle(
                   color: Color(0xFFFFD966),
                   fontSize: 16,
                 ),
@@ -170,8 +172,8 @@ class _ProvinceResultsScreenState extends State<ProvinceResultsScreen> {
                 SizedBox(height: 24),
                 Text(
                   isToday 
-                    ? 'Results Pending'
-                    : 'Drawing Scheduled',
+                    ? AppLocalizations.of(context)!.pending
+                    : AppLocalizations.of(context)!.drawingScheduled,
                   style: TextStyle(
                     color: Color(0xFFFFD966),
                     fontSize: 24,
@@ -181,8 +183,8 @@ class _ProvinceResultsScreenState extends State<ProvinceResultsScreen> {
                 SizedBox(height: 12),
                 Text(
                   isToday
-                    ? 'Drawing not yet complete'
-                    : 'Drawing results will be available on this date',
+                    ? AppLocalizations.of(context)!.drawingNotComplete
+                    : AppLocalizations.of(context)!.drawingResultsAvailable,
                   style: TextStyle(
                     color: Color(0xFFFFD966),
                     fontSize: 16,
@@ -222,7 +224,7 @@ class _ProvinceResultsScreenState extends State<ProvinceResultsScreen> {
                 ),
                 SizedBox(height: 24),
                 Text(
-                  'Results Not Available',
+                  AppLocalizations.of(context)!.resultsNotAvailableYet,
                   style: TextStyle(
                     color: Color(0xFFFFD966),
                     fontSize: 24,
@@ -231,7 +233,7 @@ class _ProvinceResultsScreenState extends State<ProvinceResultsScreen> {
                 ),
                 SizedBox(height: 12),
                 Text(
-                  'No drawing results found for this date and province',
+                  AppLocalizations.of(context)!.noDrawingResults,
                   style: TextStyle(
                     color: Color(0xFFFFD966),
                     fontSize: 16,
@@ -263,33 +265,25 @@ class _ProvinceResultsScreenState extends State<ProvinceResultsScreen> {
         ],
       ),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
             Icons.calendar_today,
             color: Color(0xFFFFD966),
-            size: 24,
+            size: 28,
           ),
-          SizedBox(width: 12),
+          SizedBox(width: 16),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  widget.province,
-                  style: TextStyle(
-                    color: Color(0xFFFFD966),
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
-                  _formatDate(widget.date),
-                  style: TextStyle(
-                    color: Color(0xFFFFD966),
-                    fontSize: 14,
-                  ),
-                ),
-              ],
+            child: Text(
+              _formatDate(widget.date),
+              style: TextStyle(
+                color: Color(0xFFFFD966),
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
+              overflow: TextOverflow.ellipsis,
+              maxLines: 2,
             ),
           ),
         ],
@@ -316,7 +310,7 @@ class _ProvinceResultsScreenState extends State<ProvinceResultsScreen> {
                       ),
                       SizedBox(height: 16),
                       Text(
-                        'No results available for this date',
+                        AppLocalizations.of(context)!.noResultsForDate,
                         style: TextStyle(
                           color: Color(0xFFFFD966),
                           fontSize: 16,
@@ -342,7 +336,7 @@ class _ProvinceResultsScreenState extends State<ProvinceResultsScreen> {
     if (_results == null || _results!.isEmpty) {
       return Center(
         child: Text(
-          'No results available',
+          AppLocalizations.of(context)!.noResultsAvailable,
           style: TextStyle(
             color: Color(0xFFFFD966),
             fontSize: 16,
@@ -396,8 +390,8 @@ class _ProvinceResultsScreenState extends State<ProvinceResultsScreen> {
                   bottom: BorderSide(color: Color(0xFFFFD966).withOpacity(0.3)),
                 ),
               ),
-              child: Text(
-                'Lottery Results',
+              child:                 Text(
+                  AppLocalizations.of(context)!.lotteryResults,
                 style: TextStyle(
                   color: Color(0xFFFFD966),
                   fontSize: 18,
@@ -438,7 +432,7 @@ class _ProvinceResultsScreenState extends State<ProvinceResultsScreen> {
           Container(
             width: double.infinity,
             child: Text(
-              prizeName,
+              _translatePrizeName(prizeName),
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
@@ -513,7 +507,7 @@ class _ProvinceResultsScreenState extends State<ProvinceResultsScreen> {
               ),
             ),
             child: Text(
-              prizeName,
+              _translatePrizeName(prizeName),
               style: TextStyle(
                 color: Color(0xFFFFD966),
                 fontSize: 16,
@@ -551,10 +545,84 @@ class _ProvinceResultsScreenState extends State<ProvinceResultsScreen> {
   }
 
   String _formatDate(DateTime date) {
-    const months = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December'
-    ];
-    return '${months[date.month - 1]} ${date.day}, ${date.year}';
+    // Simple DD-MM-YYYY format, no translation needed
+    String day = date.day.toString().padLeft(2, '0');
+    String month = date.month.toString().padLeft(2, '0');
+    String year = date.year.toString();
+    return '$day-$month-$year';
+  }
+
+  String _getDisplayProvinceName(String province) {
+    // Map province names to proper Vietnamese with accents
+    const provinceMap = {
+      'An Giang': 'An Giang',
+      'Bac Lieu': 'Bạc Liêu',
+      'Bac Ninh': 'Bắc Ninh',
+      'Ben Tre': 'Bến Tre',
+      'Binh Dinh': 'Bình Định',
+      'Binh Duong': 'Bình Dương',
+      'Binh Phuoc': 'Bình Phước',
+      'Binh Thuan': 'Bình Thuận',
+      'Ca Mau': 'Cà Mau',
+      'Can Tho': 'Cần Thơ',
+      'Da Lat': 'Đà Lạt',
+      'Da Nang': 'Đà Nẵng',
+      'Dak Lak': 'Đắk Lắk',
+      'Dak Nong': 'Đắk Nông',
+      'Dong Nai': 'Đồng Nai',
+      'Dong Thap': 'Đồng Tháp',
+      'Gia Lai': 'Gia Lai',
+      'Hai Phong': 'Hải Phòng',
+      'Hanoi': 'Hà Nội',
+      'Hau Giang': 'Hậu Giang',
+      'Ho Chi Minh': 'Hồ Chí Minh',
+      'Hue': 'Huế',
+      'Khanh Hoa': 'Khánh Hòa',
+      'Kien Giang': 'Kiên Giang',
+      'Kon Tum': 'Kon Tum',
+      'Long An': 'Long An',
+      'Nam Dinh': 'Nam Định',
+      'Ninh Thuan': 'Ninh Thuận',
+      'Phu Yen': 'Phú Yên',
+      'Quang Binh': 'Quảng Bình',
+      'Quang Nam': 'Quảng Nam',
+      'Quang Ngai': 'Quảng Ngãi',
+      'Quang Ninh': 'Quảng Ninh',
+      'Quang Tri': 'Quảng Trị',
+      'Soc Trang': 'Sóc Trăng',
+      'Tay Ninh': 'Tây Ninh',
+      'Thai Binh': 'Thái Bình',
+      'Tien Giang': 'Tiền Giang',
+      'Tra Vinh': 'Trà Vinh',
+      'Vinh Long': 'Vĩnh Long',
+      'Vung Tau': 'Vũng Tàu',
+    };
+    
+    return provinceMap[province] ?? province;
+  }
+
+  String _translatePrizeName(String prizeName) {
+    switch (prizeName) {
+      case 'Special Prize':
+        return AppLocalizations.of(context)!.specialPrize;
+      case 'First Prize':
+        return AppLocalizations.of(context)!.firstPrize;
+      case 'Second Prize':
+        return AppLocalizations.of(context)!.secondPrize;
+      case 'Third Prize':
+        return AppLocalizations.of(context)!.thirdPrize;
+      case 'Fourth Prize':
+        return AppLocalizations.of(context)!.fourthPrize;
+      case 'Fifth Prize':
+        return AppLocalizations.of(context)!.fifthPrize;
+      case 'Sixth Prize':
+        return AppLocalizations.of(context)!.sixthPrize;
+      case 'Seventh Prize':
+        return AppLocalizations.of(context)!.seventhPrize;
+      case 'Eighth Prize':
+        return AppLocalizations.of(context)!.eighthPrize;
+      default:
+        return prizeName;
+    }
   }
 }

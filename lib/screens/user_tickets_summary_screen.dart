@@ -183,7 +183,7 @@ class _UserTicketsSummaryScreenState extends State<UserTicketsSummaryScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent, // Transparent AppBar
         elevation: 0, // No shadow
-        title: const Text('My Tickets', style: TextStyle(color: Color(0xFFFFD966))),
+        title: Text(AppLocalizations.of(context)!.myTicketsTitle, style: TextStyle(color: Color(0xFFFFD966))),
         iconTheme: IconThemeData(color: Color(0xFFFFD966)), // Gold back button and refresh icon
         actions: [
           IconButton(
@@ -286,7 +286,7 @@ class _UserTicketsSummaryScreenState extends State<UserTicketsSummaryScreen> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    date,
+                    _formatDateDisplay(date),
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -301,7 +301,7 @@ class _UserTicketsSummaryScreenState extends State<UserTicketsSummaryScreen> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    '$totalTickets ticket${totalTickets != 1 ? 's' : ''}',
+                    '$totalTickets ${totalTickets != 1 ? AppLocalizations.of(context)!.tickets : AppLocalizations.of(context)!.ticket}',
                     style: TextStyle(
                       fontSize: 12,
                       color: Color(0xFFFFD966),
@@ -573,7 +573,7 @@ class _UserTicketsSummaryScreenState extends State<UserTicketsSummaryScreen> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      '$count ticket${count > 1 ? 's' : ''}',
+                      '$count ${count > 1 ? AppLocalizations.of(context)!.tickets : AppLocalizations.of(context)!.ticket}',
                       style: TextStyle(
                         color: pillTextColor,
                         fontSize: 12,
@@ -691,7 +691,7 @@ class _UserTicketsSummaryScreenState extends State<UserTicketsSummaryScreen> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
-                            '$count ticket${count > 1 ? 's' : ''}',
+                            '$count ${count > 1 ? AppLocalizations.of(context)!.tickets : AppLocalizations.of(context)!.ticket}',
                             style: TextStyle(
                               color: pillTextColor,
                               fontSize: 12,
@@ -814,5 +814,22 @@ class _UserTicketsSummaryScreenState extends State<UserTicketsSummaryScreen> {
         ],
       ),
     );
+  }
+
+  String _formatDateDisplay(String dateString) {
+    try {
+      // Parse the date string (assuming it's in YYYY-MM-DD format)
+      final parts = dateString.split('-');
+      if (parts.length == 3) {
+        final day = parts[2].padLeft(2, '0');
+        final month = parts[1].padLeft(2, '0');
+        final year = parts[0];
+        return '$day-$month-$year';
+      }
+    } catch (e) {
+      print('Error formatting date: $dateString');
+    }
+    // Return original string if parsing fails
+    return dateString;
   }
 }

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:provider/provider.dart';
 import '../widgets/vietnamese_tiled_background.dart';
 import '../services/supabase_auth_service.dart';
+import '../services/language_service.dart';
 import 'camera_screen_clean.dart'; // Import the clean camera screen
 
 class HomeScreen extends StatefulWidget {
@@ -132,10 +134,10 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             child: ListTile(
               leading: Icon(Icons.confirmation_number, color: Color(0xFFFFD966)),
-              title: Text(
-                'My Tickets', // TODO: Add to localization
-                style: TextStyle(color: Color(0xFFFFD966)), // Gold text
-              ),
+                              title: Text(
+                  AppLocalizations.of(context)!.myTickets,
+                  style: TextStyle(color: Color(0xFFFFD966)), // Gold text
+                ),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.pushNamed(context, '/my-tickets');
@@ -150,16 +152,38 @@ class _HomeScreenState extends State<HomeScreen> {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: Color(0xFFFFD966).withOpacity(0.3)),
             ),
-            child: ListTile(
-              leading: Icon(Icons.language, color: Color(0xFFFFD966)),
-              title: Text(
-                'Language / Ngôn ngữ',
-                style: TextStyle(color: Color(0xFFFFD966)), // Gold text
-              ),
-              trailing: Text('🇺🇸 🇻🇳'),
-              onTap: () {
-                // TODO: Implement language toggle
-                Navigator.pop(context);
+            child: Consumer<LanguageService>(
+              builder: (context, languageService, child) {
+                final isVietnamese = languageService.currentLocale.languageCode == 'vi';
+                return ListTile(
+                  leading: Icon(Icons.language, color: Color(0xFFFFD966)),
+                  title: Text(
+                    'Language / Ngôn ngữ',
+                    style: TextStyle(color: Color(0xFFFFD966)), // Gold text
+                  ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        isVietnamese ? '🇻🇳 VI' : '🇺🇸 EN',
+                        style: TextStyle(
+                          color: Color(0xFFFFD966),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(width: 8),
+                      Icon(
+                        Icons.swap_horiz,
+                        color: Color(0xFFFFD966).withOpacity(0.6),
+                        size: 16,
+                      ),
+                    ],
+                  ),
+                  onTap: () {
+                    languageService.toggleLanguage();
+                    // Don't close drawer when switching languages
+                  },
+                );
               },
             ),
           ),
@@ -174,7 +198,7 @@ class _HomeScreenState extends State<HomeScreen> {
             child: ListTile(
               leading: Icon(Icons.logout, color: Color(0xFFFFD966)),
               title: Text(
-                'Logout',
+                AppLocalizations.of(context)!.logout,
                 style: TextStyle(color: Color(0xFFFFD966)), // Gold text
               ),
               onTap: () {

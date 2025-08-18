@@ -7,6 +7,7 @@ import 'package:amazon_cognito_identity_dart_2/sig_v4.dart';
 import 'package:http/http.dart' as http;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz;
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 import '../services/ticket_storage_service.dart';
 import '../services/image_storage_service.dart';
@@ -395,7 +396,7 @@ class _ScanResultsScreenState extends State<ScanResultsScreen> {
                       SizedBox(width: 16),
                       Expanded(
                         child: Text(
-                          'Checking if ticket is a winner...',
+                          AppLocalizations.of(context)!.checkingWinner,
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,

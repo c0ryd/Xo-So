@@ -169,5 +169,265 @@
   "emailRequired": "Email is required",
   "@emailRequired": {
     "description": "Error when email field is empty"
+  },
+  "signIn": "Sign In",
+  "@signIn": {
+    "description": "Sign in button text"
+  },
+  "signUp": "Sign Up",
+  "@signUp": {
+    "description": "Sign up button text"
+  },
+  "createAccount": "Create Account",
+  "@createAccount": {
+    "description": "Create account button text"
+  },
+  "emailPhone": "Email/Phone",
+  "@emailPhone": {
+    "description": "Email or phone input field hint"
+  },
+  "phone": "Phone (+1234567890)",
+  "@phone": {
+    "description": "Phone input field hint"
+  },
+  "password": "Password",
+  "@password": {
+    "description": "Password input field hint"
+  },
+  "enterOtp": "Enter OTP",
+  "@enterOtp": {
+    "description": "OTP input field hint"
+  },
+  "sendOtp": "Send OTP",
+  "@sendOtp": {
+    "description": "Send OTP button text"
+  },
+  "verifySignUp": "Verify & Sign Up",
+  "@verifySignUp": {
+    "description": "Verify OTP and sign up button text"
+  },
+  "verifySignIn": "Verify & Sign In",
+  "@verifySignIn": {
+    "description": "Verify OTP and sign in button text"
+  },
+  "back": "← Back",
+  "@back": {
+    "description": "Back button text"
+  },
+  "resendOtp": "Resend OTP",
+  "@resendOtp": {
+    "description": "Resend OTP button text"
+  },
+  "alreadyHaveAccount": "Already have an account?",
+  "@alreadyHaveAccount": {
+    "description": "Text asking if user already has an account"
+  },
+  "dontHaveAccount": "Don't have an account?",
+  "@dontHaveAccount": {
+    "description": "Text asking if user doesn't have an account"
+  },
+  "orContinueWith": "or continue with",
+  "@orContinueWith": {
+    "description": "Text between login methods"
+  },
+  "continueWithApple": "Continue with Apple",
+  "@continueWithApple": {
+    "description": "Apple sign in button text"
+  },
+  "continueWithGoogle": "Continue with Google",
+  "@continueWithGoogle": {
+    "description": "Google sign in button text"
+  },
+  "signingIn": "Signing in...",
+  "@signingIn": {
+    "description": "Loading text during sign in"
+  },
+  "pleaseEnterEmailPassword": "Please enter both email and password",
+  "@pleaseEnterEmailPassword": {
+    "description": "Error when email or password is missing"
+  },
+  "passwordMinLength": "Password must be at least 6 characters",
+  "@passwordMinLength": {
+    "description": "Error when password is too short"
+  },
+  "pleaseEnterPhoneNumber": "Please enter a phone number",
+  "@pleaseEnterPhoneNumber": {
+    "description": "Error when phone number is missing"
+  },
+  "invalidPhoneNumber": "Please enter a valid phone number (include country code like +1234567890)",
+  "@invalidPhoneNumber": {
+    "description": "Error when phone number format is invalid"
+  },
+  "pleaseEnterOtp": "Please enter the verification code",
+  "@pleaseEnterOtp": {
+    "description": "Error when OTP is missing"
+  },
+  "signInFailed": "Sign in failed",
+  "@signInFailed": {
+    "description": "Generic sign in failure message"
+  },
+  "signUpFailed": "Sign up failed",
+  "@signUpFailed": {
+    "description": "Generic sign up failure message"
+  },
+  "myTickets": "My Tickets",
+  "@myTickets": {
+    "description": "Menu item for user's tickets"
+  },
+  "scanTicketButton": "Scan Ticket",
+  "@scanTicketButton": {
+    "description": "Camera page scan button text"
+  },
+  "autoScanning": "Auto-Scanning...",
+  "@autoScanning": {
+    "description": "Auto-scanning status text"
+  },
+  "found": "Found",
+  "@found": {
+    "description": "Found items count prefix"
+  },
+  "stopScanning": "Stop Scanning",
+  "@stopScanning": {
+    "description": "Stop auto-scanning button"
+  },
+  "scanResults": "Scan Results",
+  "@scanResults": {
+    "description": "Scan results popup title"
+  },
+  "city": "City",
+  "@city": {
+    "description": "City field label"
+  },
+  "date": "Date",
+  "@date": {
+    "description": "Date field label"
+  },
+  "quantity": "Quantity",
+  "@quantity": {
+    "description": "Quantity field label"
+  },
+  "done": "Done",
+  "@done": {
+    "description": "Done button text"
+  },
+  "amazing": "Amazing!",
+  "@amazing": {
+    "description": "Winner popup button text"
+  },
+  "checkingWinner": "Checking for winner...",
+  "@checkingWinner": {
+    "description": "Checking winner status text"
+  },
+  "notFound": "Not found",
+  "@notFound": {
+    "description": "Field not found text"
+  },
+  "todaysDrawingsTitle": "Today's Drawings",
+  "@todaysDrawingsTitle": {
+    "description": "Today's drawings page title"
+  },
+  "provincesWithDrawings": "Provinces with drawings",
+  "@provincesWithDrawings": {
+    "description": "Provinces section title"
+  },
+  "noDrawingsScheduled": "No drawings scheduled for this date",
+  "@noDrawingsScheduled": {
+    "description": "No drawings message"
+  },
+  "lotteryResults": "Lottery Results",
+  "@lotteryResults": {
+    "description": "Lottery results page title"
+  },
+  "drawingScheduled": "Drawing Scheduled",
+  "@drawingScheduled": {
+    "description": "Drawing scheduled status"
+  },
+  "resultsNotAvailableYet": "Results Not Available",
+  "@resultsNotAvailableYet": {
+    "description": "Results not available status"
+  },
+  "loading": "Loading...",
+  "@loading": {
+    "description": "Loading text"
+  },
+  "myTicketsTitle": "My Tickets",
+  "@myTicketsTitle": {
+    "description": "My tickets page title"
+  },
+  "totalWinnings": "Total Winnings",
+  "@totalWinnings": {
+    "description": "Total winnings label"
+  },
+  "pending": "Pending",
+  "@pending": {
+    "description": "Pending status text"
+  },
+  "email": "Email",
+  "@email": {
+    "description": "Email field label"
+  },
+  "specialPrize": "Special Prize",
+  "@specialPrize": {
+    "description": "Special prize tier"
+  },
+  "firstPrize": "First Prize",
+  "@firstPrize": {
+    "description": "First prize tier"
+  },
+  "secondPrize": "Second Prize",
+  "@secondPrize": {
+    "description": "Second prize tier"
+  },
+  "thirdPrize": "Third Prize",
+  "@thirdPrize": {
+    "description": "Third prize tier"
+  },
+  "fourthPrize": "Fourth Prize",
+  "@fourthPrize": {
+    "description": "Fourth prize tier"
+  },
+  "fifthPrize": "Fifth Prize",
+  "@fifthPrize": {
+    "description": "Fifth prize tier"
+  },
+  "sixthPrize": "Sixth Prize",
+  "@sixthPrize": {
+    "description": "Sixth prize tier"
+  },
+  "seventhPrize": "Seventh Prize",
+  "@seventhPrize": {
+    "description": "Seventh prize tier"
+  },
+  "eighthPrize": "Eighth Prize",
+  "@eighthPrize": {
+    "description": "Eighth prize tier"
+  },
+  "drawingNotComplete": "Drawing not yet complete",
+  "@drawingNotComplete": {
+    "description": "Message when drawing hasn't finished yet"
+  },
+  "drawingResultsAvailable": "Drawing results will be available on this date",
+  "@drawingResultsAvailable": {
+    "description": "Message for future drawing dates"
+  },
+  "noDrawingResults": "No drawing results found for this date and province",
+  "@noDrawingResults": {
+    "description": "Message when no results found for date and province"
+  },
+  "noResultsAvailable": "No results available",
+  "@noResultsAvailable": {
+    "description": "Generic no results message"
+  },
+  "noResultsForDate": "No results available for this date",
+  "@noResultsForDate": {
+    "description": "Message when no results for specific date"
+  },
+  "ticket": "ticket",
+  "@ticket": {
+    "description": "Singular form of ticket"
+  },
+  "tickets": "tickets",
+  "@tickets": {
+    "description": "Plural form of tickets"
   }
 }
