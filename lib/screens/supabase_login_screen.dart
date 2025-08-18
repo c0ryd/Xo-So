@@ -416,19 +416,33 @@ class _SupabaseLoginScreenState extends State<SupabaseLoginScreen> {
             // Main login content
             SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+          padding: EdgeInsets.symmetric(
+            horizontal: MediaQuery.of(context).size.width * 0.06, // 6% of screen width
+            vertical: 8,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
                                   children: [
               SizedBox(height: MediaQuery.of(context).size.height * 0.02),
             const SizedBox(height: 20),
                   Center(
-                    child: Image.asset(
-                      'assets/images/text/xo so may manv2.png',
-                      height: 100,
-                      errorBuilder: (_, __, ___) => const Text(
-                        'XỔ SỐ MAY MẮN',
-                        style: TextStyle(color: Color(0xFFFFD966), fontSize: 42, fontWeight: FontWeight.bold),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxHeight: MediaQuery.of(context).size.height * 0.15, // 15% of screen height
+                        maxWidth: MediaQuery.of(context).size.width * 0.8, // 80% of screen width
+                      ),
+                      child: Image.asset(
+                        'assets/images/text/xo so may manv2.png',
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, __, ___) => Text(
+                          'XỔ SỐ MAY MẮN',
+                          style: TextStyle(
+                            color: Color(0xFFFFD966),
+                            fontSize: MediaQuery.of(context).size.width * 0.08, // Responsive font size
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
                       ),
                     ),
                   ),

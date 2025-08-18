@@ -7,6 +7,7 @@ import '../widgets/vietnamese_tiled_background.dart';
 import '../services/supabase_auth_service.dart';
 import '../services/language_service.dart';
 import '../services/image_storage_service.dart';
+import '../utils/responsive_text.dart';
 import 'camera_screen_clean.dart'; // Import the clean camera screen
 
 class HomeScreen extends StatefulWidget {
@@ -117,25 +118,62 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         });
       },
       body: VietnameseTiledBackground(
-        child: Stack(
-          children: [
-            // Only show logo and button when drawer is closed
-            if (!_isDrawerOpen) ...[
-              // Logo image that extends behind the AppBar
-              Positioned(
-                top: MediaQuery.of(context).size.height * 0.08, // 8% down from top (2% additional)
-                left: 0,
-                right: 0,
-                child: Image.asset(
-                  'assets/images/text/xo so may manv2.png',
-                  fit: BoxFit.contain,
-                ),
-              ),
-              // Button positioned with spacing for AppBar
-              Positioned(
-                top: MediaQuery.of(context).size.height * 0.35, // 35% down from top
-                left: 0,
-                right: 0,
+        child: SafeArea(
+          child: Stack(
+            children: [
+              // Only show logo and button when drawer is closed
+              if (!_isDrawerOpen) ...[
+                // Responsive layout using Column and Flexible instead of fixed positioning
+                Column(
+                  children: [
+                    // Top spacing that adapts to screen size
+                    Flexible(
+                      flex: 1,
+                      child: Container(),
+                    ),
+                    // Logo image with responsive sizing
+                    Flexible(
+                      flex: 3,
+                      child: Center(
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            // Responsive logo sizing based on available space
+                            final maxHeight = constraints.maxHeight * 0.8;
+                            final maxWidth = MediaQuery.of(context).size.width * 0.8;
+                            return ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxHeight: maxHeight,
+                                maxWidth: maxWidth,
+                              ),
+                              child: Image.asset(
+                                'assets/images/text/xo so may manv2.png',
+                                fit: BoxFit.contain,
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                    // Spacing between logo and button
+                    Flexible(
+                      flex: 1,
+                      child: Container(),
+                    ),
+                    // Button with responsive sizing
+                    Flexible(
+                      flex: 4,
+                      child: Center(
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            // Responsive button sizing - made larger
+                            final screenWidth = MediaQuery.of(context).size.width;
+                            final buttonSize = screenWidth * 0.75; // 75% of screen width (increased from 60%)
+                            final maxButtonSize = 350.0; // Maximum size cap (increased from 300px)
+                            final finalSize = buttonSize > maxButtonSize ? maxButtonSize : buttonSize;
+                            
+                            return SizedBox(
+                              width: finalSize,
+                              height: finalSize,
                 child: GestureDetector(
                   onTap: _onCoinTapped,
                   onLongPress: () async {
@@ -195,10 +233,22 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         ),
                     ],
                   ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                    // Bottom spacing that adapts to screen size
+                    Flexible(
+                      flex: 2,
+                      child: Container(),
+                    ),
+                  ],
                 ),
-              ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -266,7 +316,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               leading: Icon(Icons.confirmation_number, color: Color(0xFFFFD966)),
                               title: Text(
                   AppLocalizations.of(context)!.myTickets,
-                  style: TextStyle(color: Color(0xFFFFD966)), // Gold text
+                  style: ResponsiveText.bodyLarge(context, color: Color(0xFFFFD966)), // Gold text with responsive sizing
                 ),
               onTap: () {
                 Navigator.pop(context);
@@ -289,7 +339,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   leading: Icon(Icons.language, color: Color(0xFFFFD966)),
                   title: Text(
                     'Language / Ngôn ngữ',
-                    style: TextStyle(color: Color(0xFFFFD966)), // Gold text
+                    style: ResponsiveText.bodyLarge(context, color: Color(0xFFFFD966)), // Gold text with responsive sizing
                   ),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,

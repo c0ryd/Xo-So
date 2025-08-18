@@ -24,6 +24,16 @@
   "saveImagesLocally": "Lưu Ảnh Cục Bộ",
   "imageStorageEnabled": "Đã bật lưu trữ ảnh",
   "imageStorageDisabled": "Đã tắt lưu trữ ảnh",
+  "scanTips": "Mẹo Quét",
+  "goodLighting": "Ánh sáng tốt",
+  "goodLightingTip": "Tránh bóng và ánh sáng chói trên vé",
+  "keepSteady": "Giữ máy ảnh ổn định",
+  "keepSteadyTip": "Giữ điện thoại thật ổn để có chữ rõ nét",
+  "fillFrame": "Lấp đầy khung hình",
+  "fillFrameTip": "Đặt vé trong khung xanh",
+  "keepFlat": "Giữ vé phẳng",
+  "keepFlatTip": "Làm phẳng các nếp gấp và đường gấp",
+  "gotIt": "Hiểu rồi!",
   "settings": "Cài Đặt",
   "language": "Ngôn Ngữ",
   "english": "Tiếng Anh",
@@ -105,5 +115,9 @@
   "noResultsAvailable": "Không có kết quả",
   "noResultsForDate": "Không có kết quả cho ngày này",
   "ticket": "vé",
-  "tickets": "vé"
+  "tickets": "vé",
+  "winner": "Trúng Thưởng!",
+  "notWinner": "Không Trúng Thưởng",
+  "resultsPending": "Kết Quả Đang Chờ",
+  "scanComplete": "Quét Hoàn Thành!"
 }

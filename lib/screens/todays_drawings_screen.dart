@@ -72,9 +72,11 @@ class _TodaysDrawingsScreenState extends State<TodaysDrawingsScreen> {
           child: SingleChildScrollView(
             child: Column(
             children: [
-              // Calendar
+              // Calendar with responsive margins
               Container(
-                margin: const EdgeInsets.all(16),
+                margin: EdgeInsets.all(
+                  MediaQuery.of(context).size.width * 0.04, // 4% of screen width
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.06),
                   borderRadius: BorderRadius.circular(20),
@@ -111,7 +113,7 @@ class _TodaysDrawingsScreenState extends State<TodaysDrawingsScreen> {
                   ],
                 ),
                 constraints: BoxConstraints(
-                  minHeight: 300, // Ensure minimum height
+                  minHeight: MediaQuery.of(context).size.height * 0.3, // 30% of screen height
                   maxHeight: MediaQuery.of(context).size.height * 0.6, // Maximum height
                 ),
                 child: _buildProvincesList(),

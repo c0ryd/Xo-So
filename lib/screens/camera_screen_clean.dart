@@ -13,6 +13,8 @@ import 'package:flutter/services.dart' show rootBundle;
 
 import '../services/ticket_storage_service.dart';
 import '../services/image_storage_service.dart';
+import '../utils/image_preprocessing.dart';
+import '../utils/ocr_enhancements.dart';
 import '../services/ad_service.dart';
 import '../widgets/vietnamese_tiled_background.dart';
 import '../main.dart'; // For cameras list
@@ -32,8 +34,9 @@ class LotteryTicketOverlayPainter extends CustomPainter {
       ..style = PaintingStyle.stroke;
 
     // Calculate lottery ticket frame dimensions (portrait orientation)
-    final frameWidth = size.width * 0.7;  // 70% of screen width
-    final frameHeight = frameWidth * 1.6; // Portrait aspect ratio - taller than wide
+    // Increased frame size to match the new crop area for better OCR
+    final frameWidth = size.width * 0.85;  // Keep visual overlay at 85% for user guidance
+    final frameHeight = frameWidth * 1.54; // Maintain aspect ratio (0.65 inverse)
     final left = (size.width - frameWidth) / 2;
     final top = (size.height - frameHeight) / 2;
 
@@ -121,6 +124,21 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
   late AppLifecycleState _appLifecycleState;
   bool _wasAutoScanningBeforePause = false; // Track if we were scanning before going to background
 
+  // Focus indicator state (like native camera app)
+  bool _showFocusIndicator = false;
+  Offset _focusIndicatorPosition = Offset(0.5, 0.5);
+  Timer? _focusIndicatorTimer;
+
+  // Rolling result stacking - keep results fresh by forgetting old ones
+  final int _rollingWindowSize = 5; // Keep results from last 5 scans
+  final List<Map<String, String>> _rollingResults = []; // Store scan results with frame numbers
+  Map<String, String> _bestStackedResults = {
+    'city': 'Not found',
+    'date': 'Not found', 
+    'ticketNumber': 'Not found'
+  };
+  int _currentFrameNumber = 0;
+
   @override
   void initState() {
     super.initState();
@@ -138,6 +156,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
   @override
   void dispose() {
     _autoScanTimer?.cancel();
+    _focusIndicatorTimer?.cancel();
     _cameraController?.dispose();
     _textRecognizer.close();
     _disposeBannerAd();
@@ -224,8 +243,28 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
         // Lock camera orientation to portrait
         await _cameraController!.lockCaptureOrientation(DeviceOrientation.portraitUp);
         
-        // Set focus mode for better image quality
+        // Set focus mode for close-up OCR text reading
         await _cameraController!.setFocusMode(FocusMode.auto);
+        print('📷 Using auto focus optimized for close-up OCR');
+        
+        // Set initial focus for very close reading (1-2 inches) - maximum closeness
+        try {
+          // Start with much closer focus - 5 aggressive attempts for closest possible focus
+          await _cameraController!.setFocusPoint(Offset(0.5, 0.5));
+          await Future.delayed(Duration(milliseconds: 150));
+          await _cameraController!.setFocusPoint(Offset(0.5, 0.5));
+          await Future.delayed(Duration(milliseconds: 150));
+          await _cameraController!.setFocusPoint(Offset(0.5, 0.5));
+          await Future.delayed(Duration(milliseconds: 150));
+          await _cameraController!.setFocusPoint(Offset(0.5, 0.5));
+          await Future.delayed(Duration(milliseconds: 150));
+          await _cameraController!.setFocusPoint(Offset(0.5, 0.5));
+          await Future.delayed(Duration(milliseconds: 400)); // Longer final settle time
+          
+          print('📷 Camera focus optimized for VERY close text reading (1-2 inches)');
+        } catch (e) {
+          print('⚠️ Could not set focus point: $e');
+        }
         
         setState(() {
           _isCameraInitialized = true;
@@ -267,12 +306,20 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
       _matchedTiers = null;
       _winnerCheckError = null;
       _ticketQuantity = 1;
+      // Reset rolling stacking state
+      _rollingResults.clear();
+      _bestStackedResults = {
+        'city': 'Not found',
+        'date': 'Not found', 
+        'ticketNumber': 'Not found'
+      };
+      _currentFrameNumber = 0;
     });
     
     // Create banner ad when scanning starts
     _createBannerAd();
     
-    print('=== AUTO-SCANNING STARTED ===');
+    print('=== AUTO-SCANNING STARTED (with result stacking) ===');
     _performAutoScan();
   }
 
@@ -328,6 +375,22 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
       return;
     }
     
+    // Optimize camera settings for close-up OCR
+    try {
+      await _cameraController!.setFocusMode(FocusMode.auto);
+      await _cameraController!.setExposureMode(ExposureMode.auto);
+      
+      // Simple close focus for 2-4 inch reading
+      await _cameraController!.setFocusPoint(Offset(0.3, 0.5));
+      await Future.delayed(Duration(milliseconds: 150));
+      
+      // Second focus attempt for stability
+      await _cameraController!.setFocusPoint(Offset(0.3, 0.5));
+      await Future.delayed(Duration(milliseconds: 150));
+    } catch (e) {
+      print('⚠️ Could not optimize camera settings: $e');
+    }
+    
     setState(() {
       _autoScanAttempts++;
     });
@@ -336,6 +399,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
     try {
       // Take 3 pictures with different exposure compensations for better OCR accuracy
       final List<Map<String, dynamic>> ocrResults = [];
+      // Use 3 different exposures for better OCR accuracy  
       final exposureOffsets = [-1.0, 0.0, 1.0];
       for (int i = 0; i < 3; i++) {
         // Check if camera is still valid before each shot
@@ -390,29 +454,37 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
       final foundCount = (hasGoodCity ? 1 : 0) + (hasGoodDate ? 1 : 0) + (hasGoodTicket ? 1 : 0);
 
       print('Auto-scan voted - City: $cityResult, Date: $dateResult, Ticket: $ticketResult');
-      print('Found: ${foundCount}/3 fields (need all 3 to stop)');
-
-      if (foundCount == 3) {
-        print('=== AUTO-SCAN SUCCESS (VOTED)! Found $foundCount/3 fields ===');
+      
+      // Update rolling results window
+      _updateRollingResults(cityResult, dateResult, ticketResult);
+      
+      // Count how many fields we have in our rolling stack
+      final stackedCount = _bestStackedResults.values.where((v) => v != 'Not found').length;
+      
+      // Check if we have complete information
+      if (stackedCount == 3) {
+        print('=== ROLLING STACK SUCCESS! Complete ticket info across ${_rollingResults.length} frames ===');
         
         // Vibrate to indicate successful scan
         HapticFeedback.mediumImpact();
         
         _stopAutoScanning();
         setState(() {
-          city = cityResult;
-          date = dateResult;
-          ticketNumber = ticketResult;
+          city = _bestStackedResults['city']!;
+          date = _bestStackedResults['date']!;
+          ticketNumber = _bestStackedResults['ticketNumber']!;
           rawText = voted['rawText'] ?? '';
           isProcessing = false;
-          // Keep camera initialized so it shows when user hits "Scan Another"
-          // Show results overlay immediately - keep camera alive
           _showingResults = true;
           _processedImagePath = voted['imagePath'];
         });
 
-        // Start background processing (save image, store in DB, check winner) - don't await
-        _performBackgroundProcessing(voted, cityResult, dateResult, ticketResult);
+        // Start background processing with rolling stacked results
+        final stackedVoted = Map<String, dynamic>.from(voted);
+        stackedVoted['city'] = _bestStackedResults['city'];
+        stackedVoted['date'] = _bestStackedResults['date'];
+        stackedVoted['ticketNumber'] = _bestStackedResults['ticketNumber'];
+        _performBackgroundProcessing(stackedVoted, _bestStackedResults['city']!, _bestStackedResults['date']!, _bestStackedResults['ticketNumber']!);
         return;
       }
 
@@ -449,11 +521,12 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
       
       if (originalImage != null) {
         // Calculate crop area based on overlay frame (portrait orientation)
+        // Increased crop area to capture more detail - ticket fills more of the frame
         final imageWidth = originalImage.width;
         final imageHeight = originalImage.height;
         
-        final frameHeight = (imageHeight * 0.7).round();
-        final frameWidth = (frameHeight * 0.6).round();
+        final frameHeight = (imageHeight * 0.90).round(); // Increased from 0.85 to 0.90 for very close reading
+        final frameWidth = (frameHeight * 0.65).round();  // Maintain aspect ratio
         final cropLeft = ((imageWidth - frameWidth) / 2).round();
         final cropTop = ((imageHeight - frameHeight) / 2).round();
         
@@ -466,19 +539,27 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
           height: frameHeight,
         );
         
+        // Apply light image enhancement for better OCR
+        final enhancedImage = img.adjustColor(
+          croppedImage,
+          contrast: 1.2,        // Slight contrast boost for better text definition
+          brightness: 1.05,     // Very slight brightness boost
+          saturation: 0.9,      // Slightly reduce saturation to focus on text
+        );
+        
         // Dynamically determine the best rotation (90° or 270°) for OCR
-        final bestRotationResult = await _findBestRotation(croppedImage);
+        final bestRotationResult = await _findBestRotation(enhancedImage);
         final rotatedImage = bestRotationResult['image'] as img.Image;
         final rotationAngle = bestRotationResult['angle'] as int; // not used further, for logs
         final recognizedText = bestRotationResult['text'] as RecognizedText;
         
         print('🔄 Best rotation determined: ${rotationAngle}°');
         
-        // Save the best rotated image to temporary file with high quality
+        // Save the best rotated image to temporary file with maximum quality for better OCR
         final tempDir = await getTemporaryDirectory();
         final timestamp = DateTime.now().millisecondsSinceEpoch;
         final tempFile = File('${tempDir.path}/lottery_${timestamp}.jpg');
-        await tempFile.writeAsBytes(img.encodeJpg(rotatedImage, quality: 95));
+        await tempFile.writeAsBytes(img.encodeJpg(rotatedImage, quality: 100)); // Maximum quality
         
         // Extract all text
         String allText = '';
@@ -492,8 +573,11 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
         }
         print('🔍 FINAL OCR TEXT LENGTH: ${allText.length}');
         if (allText.length > 0) {
-          print('🔍 OCR TEXT PREVIEW: ${allText.substring(0, math.min(100, allText.length))}');
+          print('🔍 OCR TEXT PREVIEW: ${allText.substring(0, math.min(200, allText.length))}');
         }
+        print('=== FULL OCR TEXT START ===');
+        print(allText);
+        print('=== FULL OCR TEXT END ===');
         
         // Parse the lottery ticket info for this image
         final parsedInfo = _parseTicketInfoForVoting(allText);
@@ -619,12 +703,17 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
     String foundDate = 'Not found';
     String foundTicketNumber = 'Not found';
     
-    // Extract date
+    // Extract date - Vietnamese lottery dates can be in multiple formats
     final datePatterns = [
-      RegExp(r'(\d{1,2}[-/]\d{1,2}[-/]\d{4})'),
-      RegExp(r'(\d{4}[-/]\d{1,2}[-/]\d{1,2})'),
-      RegExp(r'(\d{1,2}\s*-\s*\d{1,2}\s*-\s*\d{4})'),
-      RegExp(r'Mở ngày\s*(\d{1,2}[-/]\d{1,2}[-/]\d{4})'),
+      RegExp(r'(\d{1,2}[-/]\d{1,2}[-/]\d{4})'),                    // DD-MM-YYYY or DD/MM/YYYY
+      RegExp(r'(\d{4}[-/]\d{1,2}[-/]\d{1,2})'),                    // YYYY-MM-DD or YYYY/MM/DD
+      RegExp(r'(\d{1,2}\s*-\s*\d{1,2}\s*-\s*\d{4})'),             // DD - MM - YYYY with spaces
+      RegExp(r'Mở ngày\s*(\d{1,2}[-/]\d{1,2}[-/]\d{4})'),         // "Mở ngày DD-MM-YYYY"
+      RegExp(r'[Nn]gày\s*(\d{1,2}[-/]\d{1,2}[-/]\d{4})'),         // "Ngày DD-MM-YYYY"
+      RegExp(r'[Dd]ate\s*[:\-]?\s*(\d{1,2}[-/]\d{1,2}[-/]\d{4})'), // "Date: DD-MM-YYYY"
+      RegExp(r'(\d{1,2}[-/]\d{1,2}[-/]\d{2})'),                    // DD-MM-YY (2-digit year)
+      RegExp(r'(\d{1,2}\.\d{1,2}\.\d{4})'),                        // DD.MM.YYYY
+      RegExp(r'(\d{1,2}\s+\d{1,2}\s+\d{4})'),                     // DD MM YYYY (spaces)
     ];
     for (final pattern in datePatterns) {
       final match = pattern.firstMatch(text);
@@ -634,10 +723,16 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
       }
     }
     
-    // Extract ticket number
+    // Extract ticket number - Vietnamese lottery tickets can be 5-6 digits
     final ticketPatterns = [
-      RegExp(r'\b(\d{6})\b'),
-      RegExp(r'(\d{6})\s*[A-Z]'),
+      RegExp(r'\b(\d{6})\b'),                    // 6-digit number with word boundaries
+      RegExp(r'(\d{6})\s*[A-Z]'),               // 6 digits followed by letter
+      RegExp(r'\b(\d{5})\b'),                   // 5-digit number with word boundaries
+      RegExp(r'(\d{5})\s*[A-Z]'),               // 5 digits followed by letter
+      RegExp(r'[Ss][Oo]\s*(\d{6})'),           // "SO 123456" format
+      RegExp(r'[Ss][Oo]\s*(\d{5})'),           // "SO 12345" format
+      RegExp(r'[Nn][Uu][Mm][Bb][Ee][Rr]\s*[:\-]?\s*(\d{5,6})'), // "Number: 123456"
+      RegExp(r'[Tt][Ii][Cc][Kk][Ee][Tt]\s*[:\-]?\s*(\d{5,6})'), // "Ticket: 123456"
     ];
     for (final pattern in ticketPatterns) {
       final matches = pattern.allMatches(text);
@@ -681,7 +776,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
         final rotatedImage = img.copyRotate(croppedImage, angle: angle);
         final timestamp = DateTime.now().millisecondsSinceEpoch;
         final tempFile = File('${tempDir.path}/rotation_test_${angle}_${timestamp}.jpg');
-        await tempFile.writeAsBytes(img.encodeJpg(rotatedImage, quality: 90));
+        await tempFile.writeAsBytes(img.encodeJpg(rotatedImage, quality: 100));
         final inputImage = InputImage.fromFilePath(tempFile.path);
         final recognizedText = await _textRecognizer.processImage(inputImage);
         
@@ -840,46 +935,149 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
     }
   }
   
-  String _findCityFromFilteredList(String text, List<String> provinces) {
-    if (provinces.isEmpty) return 'Not found';
+  String _findCityFromFilteredList(String text, List<String> validProvinces) {
+    if (validProvinces.isEmpty) {
+      return 'Not found'; // No valid provinces for this date
+    }
+    
     final upperText = text.toUpperCase();
     
-    print('🔍 CITY DETECTION: Searching in ${provinces.length} provinces');
+    print('🔍 CITY DETECTION: Searching in ${validProvinces.length} provinces');
     if (upperText.length > 20) {
       print('🔍 OCR text preview: ${upperText.substring(0, math.min(200, upperText.length))}...');
     } else {
       print('🔍 OCR text preview: "$upperText" (SHORT/EMPTY)');
     }
     
-    // SIMPLIFIED: Just use original logic for now
-    String bestCity = 'Not found';
-    double bestScore = 0.0;
-    for (final province in provinces) {
-      final normalizedProvince = _normalizeProvinceName(province).toUpperCase();
-      final score = _calculateSimilarity(upperText, normalizedProvince);
-      if (score > bestScore && score > 0.7) {
-        bestScore = score;
-        bestCity = province;
+    // Create enhanced mappings with OCR variations for valid provinces only
+    final cityVariations = <String, List<String>>{
+      'TP. Hồ Chí Minh': ['HO CHI MINH', 'HÓ CHÍ MINH', 'TP HCM', 'TP.HCM', 'TPHCM', 'SAI GON', 'SAIGON', 'CHI MINH', 'CHI MINT', 'CHỈ MINT', 'CHI MIN', 'HỐ CHÍ MIN', 'Ó CHI MINH', 'O CHI MINH'],
+      'Hà Nội': ['HANOI', 'HÀ NỘI', 'HA NOI'],
+      'Đà Nẵng': ['DANANG', 'ĐÀ NẴNG', 'DA NANG'],
+      'Cần Thơ': ['CAN THO', 'CẦN THƠ'],
+      'Hải Phòng': ['HAI PHONG', 'HẢI PHÒNG'],
+      'An Giang': ['AN GIANG'],
+      'Bạc Liêu': ['BAC LIEU', 'BẠC LIÊU'],
+      'Bến Tre': ['BEN TRE', 'BẾN TRE'],
+      'Bình Dương': ['BINH DUONG', 'BÌNH DƯƠNG', 'BÌNH DƯƠNGE', 'BINH DUONE', 'BÌNH DUONE'],
+      'Bình Phước': ['BINH PHUOC', 'BÌNH PHƯỚC'],
+      'Bình Thuận': ['BINH THUAN', 'BÌNH THUẬN'],
+      'Cà Mau': ['CA MAU', 'CÀ MAU'],
+      'Đồng Nai': ['DONG NAI', 'ĐỒNG NAI'],
+      'Đồng Tháp': ['DONG THAP', 'ĐỒNG THÁP'],
+      'Hậu Giang': ['HAU GIANG', 'HẬU GIANG'],
+      'Kiên Giang': ['KIEN GIANG', 'KIÊN GIANG'],
+      'Lâm Đồng': ['LAM DONG', 'LÂM ĐỒNG'],
+      'Long An': ['LONG AN'],
+      'Sóc Trăng': ['SOC TRANG', 'SÓC TRĂNG'],
+      'Tây Ninh': ['TAY NINH', 'TÂY NINH'],
+      'Tiền Giang': ['TIEN GIANG', 'TIỀN GIANG', 'TIÊN GIANG', 'TIEN CIANG'],
+      'Trà Vinh': ['TRA VINH', 'TRÀ VINH'],
+      'Vĩnh Long': ['VINH LONG', 'VĨNH LONG'],
+      'Vũng Tàu': ['VUNG TAU', 'VŨNG TÀU'],
+      'Bắc Ninh': ['BAC NINH', 'BẮC NINH'],
+      'Nam Định': ['NAM DINH', 'NAM ĐỊNH'],
+      'Quảng Ninh': ['QUANG NINH', 'QUẢNG NINH'],
+      'Thái Bình': ['THAI BINH', 'THÁI BÌNH'],
+      'Hà Nam': ['HA NAM', 'HÀ NAM'],
+      'Hưng Yên': ['HUNG YEN', 'HƯNG YÊN'],
+      'Vĩnh Phúc': ['VINH PHUC', 'VĨNH PHÚC'],
+      'Ninh Bình': ['NINH BINH', 'NINH BÌNH'],
+      'Khánh Hòa': ['KHANH HOA', 'KHÁNH HÒA'],
+      'Phú Yên': ['PHU YEN', 'PHÚ YÊN'],
+      'Bình Định': ['BINH DINH', 'BÌNH ĐỊNH'],
+      'Quảng Nam': ['QUANG NAM', 'QUẢNG NAM'],
+      'Quảng Ngãi': ['QUANG NGAI', 'QUẢNG NGÃI'],
+      'Thừa Thiên Huế': ['THUA THIEN HUE', 'THỪA THIÊN HUẾ', 'HUE', 'HUẾ'],
+      'Đắk Lắk': ['DAK LAK', 'ĐẮK LẮK', 'DAKLAK'],
+      'Đắk Nông': ['DAK NONG', 'ĐẮK NÔNG'],
+      'Gia Lai': ['GIA LAI'],
+      'Kon Tum': ['KON TUM', 'KONTUM'],
+      'Nghệ An': ['NGHE AN', 'NGHỆ AN'],
+      'Hà Tĩnh': ['HA TINH', 'HÀ TĨNH'],
+      'Quảng Trị': ['QUANG TRI', 'QUẢNG TRỊ'],
+      'Quảng Bình': ['QUANG BINH', 'QUẢNG BÌNH'],
+    };
+    
+    // Filter variations to only include valid provinces for this date
+    final filteredVariations = <String, List<String>>{};
+    for (final entry in cityVariations.entries) {
+      if (validProvinces.contains(entry.key)) {
+        filteredVariations[entry.key] = entry.value;
       }
     }
     
-    if (bestCity != 'Not found') {
-      print('✅ MATCH: Found "$bestCity" (score: $bestScore)');
-    } else {
-      print('❌ NO MATCH: No city found');
+    // First pass: exact matching with variations
+    for (final entry in filteredVariations.entries) {
+      final cityName = entry.key;
+      final variations = entry.value;
+      
+      for (final variation in variations) {
+        if (upperText.contains(variation)) {
+          print('✅ EXACT MATCH: Found "$cityName" via variation "$variation"');
+          return cityName;
+        }
+      }
     }
     
-    return bestCity;
+    // Special aggressive matching for Ho Chi Minh City variants (only if valid for this date)
+    if (validProvinces.contains('TP. Hồ Chí Minh') &&
+        (upperText.contains('CHI MIN') || 
+         upperText.contains('CHI MINH') || 
+         upperText.contains('CHI MINT') ||
+         upperText.contains('HO CHI') ||
+         upperText.contains('TPHCM') ||
+         (upperText.contains('CHI') && upperText.contains('MIN')))) {
+      print('✅ SPECIAL MATCH: Ho Chi Minh City detected');
+      return 'TP. Hồ Chí Minh';
+    }
+    
+    // If no exact match, try fuzzy matching with valid provinces only
+    double bestScore = 0.0;
+    String bestMatch = 'Not found';
+    
+    for (final cityName in validProvinces) {
+      final normalizedCity = _normalizeForOCR(cityName);
+      final normalizedText = _normalizeForOCR(upperText);
+      
+      final score = _calculateSimilarity(normalizedText, normalizedCity);
+      if (score > bestScore && score > 0.6) { // 60% threshold for matching
+        bestScore = score;
+        bestMatch = cityName;
+      }
+      
+      // Also check variations if they exist
+      if (filteredVariations.containsKey(cityName)) {
+        for (final variation in filteredVariations[cityName]!) {
+          final score = _calculateSimilarity(upperText, variation);
+          if (score > bestScore && score > 0.6) {
+            bestScore = score;
+            bestMatch = cityName;
+          }
+        }
+      }
+    }
+    
+    if (bestMatch != 'Not found') {
+      print('✅ FUZZY MATCH: Found "$bestMatch" (score: ${bestScore.toStringAsFixed(2)})');
+      return bestMatch;
+    }
+    
+    print('❌ NO MATCH: No city found in ${validProvinces.length} valid provinces');
+    return 'Not found';
   }
   
   String _normalizeForOCR(String text) {
     return text
         .toUpperCase()
+        // Common OCR number/letter substitutions
         .replaceAll('0', 'O')
         .replaceAll('1', 'I')
         .replaceAll('5', 'S')
         .replaceAll('8', 'B')
         .replaceAll('6', 'G')
+        .replaceAll('2', 'Z')
+        // Vietnamese diacritics normalization
         .replaceAll('Ơ', 'O')
         .replaceAll('Ư', 'U')
         .replaceAll('Đ', 'D')
@@ -888,7 +1086,68 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
         .replaceAll('Ã', 'A')
         .replaceAll('Á', 'A')
         .replaceAll('Ạ', 'A')
-        .replaceAll('Ă', 'A');
+        .replaceAll('Ă', 'A')
+        .replaceAll('Ấ', 'A')
+        .replaceAll('Ầ', 'A')
+        .replaceAll('Ẩ', 'A')
+        .replaceAll('Ẫ', 'A')
+        .replaceAll('Ậ', 'A')
+        .replaceAll('Ắ', 'A')
+        .replaceAll('Ằ', 'A')
+        .replaceAll('Ẳ', 'A')
+        .replaceAll('Ẵ', 'A')
+        .replaceAll('Ặ', 'A')
+        .replaceAll('È', 'E')
+        .replaceAll('É', 'E')
+        .replaceAll('Ẻ', 'E')
+        .replaceAll('Ẽ', 'E')
+        .replaceAll('Ẹ', 'E')
+        .replaceAll('Ề', 'E')
+        .replaceAll('Ế', 'E')
+        .replaceAll('Ể', 'E')
+        .replaceAll('Ễ', 'E')
+        .replaceAll('Ệ', 'E')
+        .replaceAll('Ì', 'I')
+        .replaceAll('Í', 'I')
+        .replaceAll('Ỉ', 'I')
+        .replaceAll('Ĩ', 'I')
+        .replaceAll('Ị', 'I')
+        .replaceAll('Ò', 'O')
+        .replaceAll('Ó', 'O')
+        .replaceAll('Ỏ', 'O')
+        .replaceAll('Õ', 'O')
+        .replaceAll('Ọ', 'O')
+        .replaceAll('Ồ', 'O')
+        .replaceAll('Ố', 'O')
+        .replaceAll('Ổ', 'O')
+        .replaceAll('Ỗ', 'O')
+        .replaceAll('Ộ', 'O')
+        .replaceAll('Ờ', 'O')
+        .replaceAll('Ớ', 'O')
+        .replaceAll('Ở', 'O')
+        .replaceAll('Ỡ', 'O')
+        .replaceAll('Ợ', 'O')
+        .replaceAll('Ù', 'U')
+        .replaceAll('Ú', 'U')
+        .replaceAll('Ủ', 'U')
+        .replaceAll('Ũ', 'U')
+        .replaceAll('Ụ', 'U')
+        .replaceAll('Ừ', 'U')
+        .replaceAll('Ứ', 'U')
+        .replaceAll('Ử', 'U')
+        .replaceAll('Ữ', 'U')
+        .replaceAll('Ự', 'U')
+        .replaceAll('Ỳ', 'Y')
+        .replaceAll('Ý', 'Y')
+        .replaceAll('Ỷ', 'Y')
+        .replaceAll('Ỹ', 'Y')
+        .replaceAll('Ỵ', 'Y')
+        // Remove spaces and special characters
+        .replaceAll(' ', '')
+        .replaceAll('.', '')
+        .replaceAll(',', '')
+        .replaceAll('-', '')
+        .replaceAll('_', '');
   }
   
   double _calculateSimilarity(String text, String pattern) {
@@ -1047,17 +1306,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                     children: [
                       GestureDetector(
                         onTapUp: (TapUpDetails details) async {
-                          final renderBox = context.findRenderObject() as RenderBox;
-                          final tapPosition = renderBox.globalToLocal(details.globalPosition);
-                          final previewSize = renderBox.size;
-                          final x = tapPosition.dx / previewSize.width;
-                          final y = tapPosition.dy / previewSize.height;
-                          try {
-                            await _cameraController!.setFocusPoint(Offset(x, y));
-                            await _cameraController!.setExposurePoint(Offset(x, y));
-                          } catch (e) {
-                            print('Focus/exposure setting failed: $e');
-                          }
+                          await _handleCameraTap(details);
                         },
                         child: CameraPreview(_cameraController!),
                       ),
@@ -1065,6 +1314,33 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                         size: Size.infinite,
                         painter: LotteryTicketOverlayPainter(),
                       ),
+                      // Focus indicator (like native camera app)
+                      if (_showFocusIndicator)
+                        Positioned(
+                          left: _focusIndicatorPosition.dx - 40,
+                          top: _focusIndicatorPosition.dy - 40,
+                          child: Container(
+                            width: 80,
+                            height: 80,
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: Colors.yellow.shade600,
+                                width: 2,
+                              ),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Container(
+                              margin: EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: Colors.yellow.shade600,
+                                  width: 1,
+                                ),
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -2082,11 +2358,16 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
   /// Get the header text based on winner status
   String _getHeaderText() {
     if (_isWinner == true) {
-      return 'Winner!';
+      return AppLocalizations.of(context)!.winner;
     } else if (_isWinner == false) {
-      return 'Not a Winner';
+      return AppLocalizations.of(context)!.notWinner;
+    } else if (_winnerCheckError != null && 
+               (_winnerCheckError!.contains('not available yet') || 
+                _winnerCheckError!.contains('Results not available yet') ||
+                _winnerCheckError!.contains('404'))) {
+      return AppLocalizations.of(context)!.resultsPending;
     } else {
-      return 'Scan Complete!';
+      return AppLocalizations.of(context)!.scanComplete;
     }
   }
 
@@ -2096,9 +2377,128 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
       return Color(0xFFFFD966); // Gold for winners
     } else if (_isWinner == false) {
       return Colors.red.shade300; // Light red for not a winner
+    } else if (_winnerCheckError != null && 
+               (_winnerCheckError!.contains('not available yet') || 
+                _winnerCheckError!.contains('Results not available yet') ||
+                _winnerCheckError!.contains('404'))) {
+      return Colors.orange.shade300; // Orange for pending results
     } else {
       return Color(0xFFFFD966); // Gold for scan complete
     }
+  }
+
+  /// Handle camera tap for smart focus (like native camera app)
+  Future<void> _handleCameraTap(TapUpDetails details) async {
+    if (_cameraController == null || !_cameraController!.value.isInitialized) {
+      return;
+    }
+
+    // Stop auto-scanning temporarily
+    final wasAutoScanning = _isAutoScanning;
+    if (_isAutoScanning) {
+      print('📷 Stopping auto-scan for manual focus');
+      _stopAutoScanning();
+    }
+
+    try {
+      final renderBox = context.findRenderObject() as RenderBox;
+      final tapPosition = renderBox.globalToLocal(details.globalPosition);
+      final previewSize = renderBox.size;
+      
+      // Convert tap position to camera coordinates
+      final x = tapPosition.dx / previewSize.width;
+      final y = tapPosition.dy / previewSize.height;
+      
+      print('📷 User tapped at ($x, $y) for manual focus');
+      
+      // Show focus indicator at tap position
+      setState(() {
+        _focusIndicatorPosition = tapPosition;
+        _showFocusIndicator = true;
+      });
+      
+      // Cancel any existing focus timer
+      _focusIndicatorTimer?.cancel();
+      
+      // Set focus and exposure to tap point
+      await _cameraController!.setFocusPoint(Offset(x, y));
+      await _cameraController!.setExposurePoint(Offset(x, y));
+      
+      // Hide focus indicator after 1.5 seconds (like native camera)
+      _focusIndicatorTimer = Timer(Duration(milliseconds: 1500), () {
+        if (mounted) {
+          setState(() {
+            _showFocusIndicator = false;
+          });
+        }
+      });
+      
+      // Restart auto-scanning after focus settles if it was running
+      if (wasAutoScanning && !_showingResults) {
+        print('📷 Restarting auto-scan with new focus');
+        Future.delayed(Duration(milliseconds: 800), () {
+          if (mounted && !_showingResults && !_isAutoScanning) {
+            _startAutoScanning();
+          }
+        });
+      }
+      
+    } catch (e) {
+      print('⚠️ Focus/exposure setting failed: $e');
+    }
+  }
+
+
+
+  /// Add results to rolling window and update best stacked results
+  void _updateRollingResults(String cityResult, String dateResult, String ticketResult) {
+    _currentFrameNumber++;
+    
+    // Add current frame results
+    _rollingResults.add({
+      'city': cityResult,
+      'date': dateResult,
+      'ticketNumber': ticketResult,
+      'frameNumber': _currentFrameNumber.toString()
+    });
+    
+    // Remove old results outside the rolling window
+    while (_rollingResults.length > _rollingWindowSize) {
+      _rollingResults.removeAt(0);
+    }
+    
+    print('🎞️ Rolling window: ${_rollingResults.length}/$_rollingWindowSize frames');
+    
+    // Find best results from rolling window
+    _bestStackedResults = {
+      'city': 'Not found',
+      'date': 'Not found',
+      'ticketNumber': 'Not found'
+    };
+    
+    // Look for the most recent valid result for each field
+    for (int i = _rollingResults.length - 1; i >= 0; i--) {
+      final result = _rollingResults[i];
+      
+      if (_bestStackedResults['city'] == 'Not found' && result['city'] != 'Not found') {
+        _bestStackedResults['city'] = result['city']!;
+        print('📍 Found CITY in frame ${result['frameNumber']}: ${result['city']}');
+      }
+      
+      if (_bestStackedResults['date'] == 'Not found' && result['date'] != 'Not found') {
+        _bestStackedResults['date'] = result['date']!;
+        print('📅 Found DATE in frame ${result['frameNumber']}: ${result['date']}');
+      }
+      
+      if (_bestStackedResults['ticketNumber'] == 'Not found' && result['ticketNumber'] != 'Not found') {
+        _bestStackedResults['ticketNumber'] = result['ticketNumber']!;
+        print('🎫 Found TICKET in frame ${result['frameNumber']}: ${result['ticketNumber']}');
+      }
+    }
+    
+    // Count how many fields we have
+    final stackedCount = _bestStackedResults.values.where((v) => v != 'Not found').length;
+    print('🎯 Rolling stacked: $stackedCount/3 fields across ${_rollingResults.length} frames');
   }
 
   // Old manual duplication method removed - now using Lambda function

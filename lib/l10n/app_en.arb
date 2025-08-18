@@ -111,6 +111,16 @@
     "description": "Message when image storage is turned on"
   },
   "imageStorageDisabled": "Image storage disabled",
+  "scanTips": "Scan Tips",
+  "goodLighting": "Good lighting",
+  "goodLightingTip": "Avoid shadows and glare on the ticket",
+  "keepSteady": "Keep camera steady", 
+  "keepSteadyTip": "Hold your phone stable for sharp text",
+  "fillFrame": "Fill the frame",
+  "fillFrameTip": "Position ticket within the green frame",
+  "keepFlat": "Keep ticket flat",
+  "keepFlatTip": "Smooth out wrinkles and fold lines",
+  "gotIt": "Got it!",
   "@imageStorageDisabled": {
     "description": "Message when image storage is turned off"
   },
@@ -441,5 +451,21 @@
   "tickets": "tickets",
   "@tickets": {
     "description": "Plural form of tickets"
+  },
+  "winner": "Winner!",
+  "@winner": {
+    "description": "Header text when ticket is a winner"
+  },
+  "notWinner": "Not a Winner",
+  "@notWinner": {
+    "description": "Header text when ticket is not a winner"
+  },
+  "resultsPending": "Results Pending",
+  "@resultsPending": {
+    "description": "Header text when lottery results are not yet available"
+  },
+  "scanComplete": "Scan Complete!",
+  "@scanComplete": {
+    "description": "Header text when scan is complete but winner status unknown"
   }
 }

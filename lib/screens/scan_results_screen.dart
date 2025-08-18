@@ -345,7 +345,9 @@ class _ScanResultsScreenState extends State<ScanResultsScreen> {
       body: VietnameseTiledBackground(
         child: SafeArea(
           child: SingleChildScrollView(
-          padding: EdgeInsets.all(16.0),
+          padding: EdgeInsets.all(
+            MediaQuery.of(context).size.width * 0.04, // 4% of screen width
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
