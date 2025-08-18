@@ -147,21 +147,29 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     print('🔄 App lifecycle state changed from ${_appLifecycleState.name} to ${state.name}');
+    print('🔍 Current auto-scanning state: $_isAutoScanning');
+    print('🔍 Camera initialized: ${_cameraController?.value.isInitialized ?? false}');
+    print('🔍 Showing results: $_showingResults');
+    print('🔍 Was scanning before pause flag: $_wasAutoScanningBeforePause');
     
     if (_appLifecycleState != state) {
+      final previousState = _appLifecycleState;
       _appLifecycleState = state;
       
       switch (state) {
-        case AppLifecycleState.paused:
         case AppLifecycleState.inactive:
+        case AppLifecycleState.paused:
         case AppLifecycleState.detached:
         case AppLifecycleState.hidden:
-          // App is going to background, being minimized, device locked, or hidden
-          print('🛑 App going to background/inactive - stopping auto-scanning');
-          print('🔍 Was auto-scanning before pause: $_isAutoScanning');
+          // ANY non-resumed state should stop scanning
+          print('🛑 App NOT ACTIVE (${state.name}) - stopping auto-scanning');
+          print('🔍 Was auto-scanning before stopping: $_isAutoScanning');
           
-          // Remember if we were auto-scanning before pausing
-          _wasAutoScanningBeforePause = _isAutoScanning;
+          // ALWAYS remember if we were auto-scanning when we stop
+          if (_isAutoScanning) {
+            _wasAutoScanningBeforePause = true;
+            print('🔍 Setting _wasAutoScanningBeforePause = true');
+          }
           
           // Force stop auto-scanning and cancel any timers
           _forceStopAutoScanning();
@@ -169,23 +177,30 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
           
         case AppLifecycleState.resumed:
           // App is back in foreground
-          print('▶️ App resumed - was previously scanning: $_wasAutoScanningBeforePause');
+          print('▶️ App RESUMED - was previously scanning: $_wasAutoScanningBeforePause');
           
           // Only restart auto-scanning if we were scanning before AND camera is ready
           if (_wasAutoScanningBeforePause && 
               _cameraController != null && 
               _cameraController!.value.isInitialized &&
-              !_showingResults) {
-            print('🔄 Restarting auto-scanning after resume');
+              !_showingResults &&
+              !_isAutoScanning) {
+            print('🔄 Restarting auto-scanning after resume in 1 second');
             Future.delayed(Duration(milliseconds: 1000), () {
-              if (mounted && _appLifecycleState == AppLifecycleState.resumed) {
+              if (mounted && 
+                  _appLifecycleState == AppLifecycleState.resumed && 
+                  !_isAutoScanning &&
+                  _wasAutoScanningBeforePause) {
+                print('🔄 Actually starting auto-scanning now');
                 _startAutoScanning();
+                _wasAutoScanningBeforePause = false; // Reset flag after restart
               }
             });
+          } else {
+            print('🚫 Not restarting scanning: wasScanning=$_wasAutoScanningBeforePause, cameraReady=${_cameraController?.value.isInitialized}, showingResults=$_showingResults, currentlyScanning=$_isAutoScanning');
+            // Reset flag if we're not going to restart
+            _wasAutoScanningBeforePause = false;
           }
-          
-          // Reset the flag
-          _wasAutoScanningBeforePause = false;
           break;
       }
     }
@@ -228,7 +243,13 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
   }
 
   void _startAutoScanning() {
-    if (_isAutoScanning) return; // Already running
+    print('🔄 _startAutoScanning called - current state: $_isAutoScanning');
+    print('🔄 App lifecycle state: ${_appLifecycleState.name}');
+    
+    if (_isAutoScanning) {
+      print('🔄 Already scanning, returning');
+      return; // Already running
+    }
     
     setState(() {
       _isAutoScanning = true;
@@ -270,6 +291,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
 
   void _forceStopAutoScanning() {
     // More aggressive stop that ensures everything is cancelled
+    print('🛑 Force stopping auto-scanning - timer active: ${_autoScanTimer?.isActive ?? false}');
     _autoScanTimer?.cancel();
     _autoScanTimer = null;
     
@@ -277,9 +299,12 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
       setState(() {
         _isAutoScanning = false;
       });
+      print('🛑 Set _isAutoScanning = false');
+    } else {
+      print('🛑 Widget not mounted, cannot setState');
     }
     
-    print('🛑 Force stopped auto-scanning');
+    print('🛑 Force stopped auto-scanning complete');
   }
 
   Future<void> _performAutoScan() async {
