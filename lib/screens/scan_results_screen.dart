@@ -334,8 +334,12 @@ class _ScanResultsScreenState extends State<ScanResultsScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent, // Transparent AppBar
         elevation: 0, // No shadow
-        title: Text('Scan Results'),
-        leading: BackButton(onPressed: () => Navigator.pop(context)),
+        title: Text('Scan Results', style: TextStyle(color: Color(0xFFFFD966))),
+        iconTheme: IconThemeData(color: Color(0xFFFFD966)), // Gold back button
+        leading: BackButton(
+          color: Color(0xFFFFD966), // Gold back button
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
       body: VietnameseTiledBackground(
         child: SafeArea(
@@ -369,94 +373,115 @@ class _ScanResultsScreenState extends State<ScanResultsScreen> {
 
               // Winner checking results (replicated)
               if (_isCheckingWinner) ...[
-                Card(
-                  color: Color(0xFFFFE8BE),
-                  child: Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Row(
-                      children: [
-                        CircularProgressIndicator(
-                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFA5362D)),
-                        ),
-                        SizedBox(width: 16),
-                        Expanded(
-                          child: Text(
-                            'Checking if ticket is a winner...',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
-                            ),
+                Container(
+                  padding: EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.06),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Color(0xFFFFD966), width: 1.5),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.25),
+                        blurRadius: 10,
+                        offset: Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFFD966)),
+                      ),
+                      SizedBox(width: 16),
+                      Expanded(
+                        child: Text(
+                          'Checking if ticket is a winner...',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
                 SizedBox(height: 20),
               ] else if (_isWinner != null && _isWinner == false) ...[
-                Card(
-                  child: Container(
-                    padding: EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Color(0xFFFFE8BE),
-                      border: Border.all(color: Colors.red, width: 2),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(Icons.info, color: Colors.red, size: 24),
-                            SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                'Not a Winner',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.red[700],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        SizedBox(height: 8),
-                        Text(
-                          'This ticket did not match any winning numbers.',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.red[700],
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                SizedBox(height: 20),
-              ] else if (_winnerCheckError != null) ...[
                 Container(
-                  padding: EdgeInsets.all(16),
+                  padding: EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: Colors.orange[50],
-                    border: Border.all(color: Colors.orange),
-                    borderRadius: BorderRadius.circular(8),
+                    color: Colors.white.withOpacity(0.06),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.red.shade300, width: 1.5),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.25),
+                        blurRadius: 10,
+                        offset: Offset(0, 4),
+                      ),
+                    ],
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.pending, color: Colors.orange),
-                          SizedBox(width: 8),
+                          Icon(Icons.info, color: Colors.red.shade300, size: 24),
+                          SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'Not a Winner',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.red.shade300,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                        SizedBox(height: 8),
+                        Text(
+                          'This ticket did not match any winning numbers.',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.white.withOpacity(0.8),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                SizedBox(height: 20),
+              ] else if (_winnerCheckError != null) ...[
+                Container(
+                  padding: EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.06),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Color(0xFFFFD966), width: 1.5),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.25),
+                        blurRadius: 10,
+                        offset: Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.pending, color: Color(0xFFFFD966)),
+                          SizedBox(width: 12),
                           Text(
                             'Pending Results',
                             style: TextStyle(
-                              fontSize: 16,
+                              fontSize: 18,
                               fontWeight: FontWeight.bold,
-                              color: Colors.orange,
+                              color: Color(0xFFFFD966),
                             ),
                           ),
                         ],
@@ -464,7 +489,11 @@ class _ScanResultsScreenState extends State<ScanResultsScreen> {
                       SizedBox(height: 8),
                       Text(
                         _winnerCheckError!,
-                        style: TextStyle(fontSize: 14, color: Colors.orange[700]),
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.white.withOpacity(0.8),
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ],
                   ),
@@ -472,20 +501,31 @@ class _ScanResultsScreenState extends State<ScanResultsScreen> {
                 SizedBox(height: 20),
               ] else if ((widget.city ?? 'Not found') != 'Not found' && (widget.date ?? 'Not found') != 'Not found' && (widget.ticketNumber ?? 'Not found') != 'Not found' && !_shouldCheckWinner()) ...[
                 Container(
-                  padding: EdgeInsets.all(16),
+                  padding: EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: Colors.orange[50],
-                    border: Border.all(color: Colors.orange),
-                    borderRadius: BorderRadius.circular(8),
+                    color: Colors.white.withOpacity(0.06),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Color(0xFFFFD966), width: 1.5),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.25),
+                        blurRadius: 10,
+                        offset: Offset(0, 4),
+                      ),
+                    ],
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.schedule, color: Colors.orange),
+                      Icon(Icons.schedule, color: Color(0xFFFFD966)),
                       SizedBox(width: 12),
                       Expanded(
                         child: Text(
                           'This drawing has not occurred yet. You will receive a notification after the drawing has occurred.',
-                          style: TextStyle(fontSize: 14, color: Colors.orange[700]),
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.white.withOpacity(0.8),
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
                     ],
@@ -501,11 +541,19 @@ class _ScanResultsScreenState extends State<ScanResultsScreen> {
                 child: ElevatedButton(
                   onPressed: () => Navigator.popUntil(context, (route) => route.isFirst),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Color(0xFFFFE8BE),
+                    backgroundColor: Color(0xFFFFD966),
                     foregroundColor: Colors.black87,
                     padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
-                  child: Text('Back to Home'),
+                  child: Text(
+                    'Back to Home',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -517,61 +565,77 @@ class _ScanResultsScreenState extends State<ScanResultsScreen> {
   }
 
   Widget _buildResultCard() {
-    return Card(
-      color: Color(0xFFFFE8BE),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildResultRow('City', widget.city ?? 'Not found', Icons.location_city),
-            const SizedBox(height: 12),
-            _buildResultRow('Date', widget.date ?? 'Not found', Icons.calendar_today),
-            const SizedBox(height: 12),
-            _buildResultRow('Ticket Number', widget.ticketNumber ?? 'Not found', Icons.confirmation_number),
-          ],
-        ),
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.06), // Same as login cards
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Color(0xFFFFD966), width: 1.5), // Gold border
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.25),
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Scan Results',
+            style: TextStyle(
+              color: Color(0xFFFFD966), // Gold text
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          SizedBox(height: 16),
+          _buildResultRow('City', widget.city ?? 'Not found', Icons.location_city),
+          const SizedBox(height: 12),
+          _buildResultRow('Date', widget.date ?? 'Not found', Icons.calendar_today),
+          const SizedBox(height: 12),
+          _buildResultRow('Ticket Number', widget.ticketNumber ?? 'Not found', Icons.confirmation_number),
+        ],
       ),
     );
   }
 
   Widget _buildResultRow(String label, String actual, IconData icon) {
     final isFound = actual != 'Not found';
-    Color statusColor;
-    Color borderColor;
-    if (!isFound) {
-      statusColor = Colors.red;
-      borderColor = Colors.red;
-    } else {
-      statusColor = Colors.green;
-      borderColor = Colors.green;
-    }
-
+    
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
+        color: Colors.white.withOpacity(0.03),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: borderColor.withOpacity(0.3),
+          color: Color(0xFFFFD966).withOpacity(0.3), // Gold border
           width: 1,
         ),
       ),
       child: Row(
         children: [
-          Icon(icon, color: Color(0xFFA5362D), size: 20),
+          Icon(icon, color: Color(0xFFFFD966), size: 20), // Gold icon
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.w500)),
+                Text(
+                  label, 
+                  style: TextStyle(
+                    fontSize: 12, 
+                    color: Color(0xFFFFD966).withOpacity(0.8), // Gold label
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
                 const SizedBox(height: 4),
                 Text(
                   actual,
                   style: TextStyle(
                     fontSize: 16,
-                    color: isFound ? Colors.black87 : Colors.red,
+                    color: isFound ? Colors.white : Colors.red.shade300, // White for found, light red for not found
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -581,13 +645,15 @@ class _ScanResultsScreenState extends State<ScanResultsScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: statusColor.withOpacity(0.2),
+              color: isFound 
+                ? Color(0xFFFFD966).withOpacity(0.2) 
+                : Colors.red.withOpacity(0.2),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
               isFound ? 'Found' : 'Missing',
               style: TextStyle(
-                color: statusColor == Colors.red ? Colors.red[700]! : Colors.green[700]!,
+                color: isFound ? Color(0xFFFFD966) : Colors.red.shade300,
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
               ),

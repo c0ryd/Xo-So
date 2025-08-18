@@ -97,7 +97,8 @@ class _ProvinceResultsScreenState extends State<ProvinceResultsScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent, // Transparent AppBar
         elevation: 0, // No shadow
-        title: Text('${widget.province} Results'),
+        title: Text('${widget.province} Results', style: TextStyle(color: Color(0xFFFFD966))),
+        iconTheme: IconThemeData(color: Color(0xFFFFD966)), // Gold back button
       ),
       body: VietnameseTiledBackground(
         child: SafeArea(
@@ -121,7 +122,7 @@ class _ProvinceResultsScreenState extends State<ProvinceResultsScreen> {
               Text(
                 'Loading results...',
                 style: TextStyle(
-                  color: Color(0xFFFFE8BE),
+                  color: Color(0xFFFFD966),
                   fontSize: 16,
                 ),
               ),
@@ -172,7 +173,7 @@ class _ProvinceResultsScreenState extends State<ProvinceResultsScreen> {
                     ? 'Results Pending'
                     : 'Drawing Scheduled',
                   style: TextStyle(
-                    color: Color(0xFFFFE8BE),
+                    color: Color(0xFFFFD966),
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
                   ),
@@ -183,7 +184,7 @@ class _ProvinceResultsScreenState extends State<ProvinceResultsScreen> {
                     ? 'Drawing not yet complete'
                     : 'Drawing results will be available on this date',
                   style: TextStyle(
-                    color: Color(0xFFFFE8BE),
+                    color: Color(0xFFFFD966),
                     fontSize: 16,
                   ),
                   textAlign: TextAlign.center,
@@ -223,7 +224,7 @@ class _ProvinceResultsScreenState extends State<ProvinceResultsScreen> {
                 Text(
                   'Results Not Available',
                   style: TextStyle(
-                    color: Color(0xFFFFE8BE),
+                    color: Color(0xFFFFD966),
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
                   ),
@@ -232,7 +233,7 @@ class _ProvinceResultsScreenState extends State<ProvinceResultsScreen> {
                 Text(
                   'No drawing results found for this date and province',
                   style: TextStyle(
-                    color: Color(0xFFFFE8BE),
+                    color: Color(0xFFFFD966),
                     fontSize: 16,
                   ),
                   textAlign: TextAlign.center,
@@ -248,15 +249,16 @@ class _ProvinceResultsScreenState extends State<ProvinceResultsScreen> {
   Widget _buildHeader() {
     return Container(
       margin: EdgeInsets.all(16),
-      padding: EdgeInsets.all(16),
+      padding: EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Color(0xFFA5362D),
-        borderRadius: BorderRadius.circular(12),
+        color: Colors.white.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Color(0xFFFFD966), width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 4,
-            offset: Offset(0, 2),
+            color: Colors.black.withOpacity(0.25),
+            blurRadius: 10,
+            offset: Offset(0, 4),
           ),
         ],
       ),
@@ -264,7 +266,7 @@ class _ProvinceResultsScreenState extends State<ProvinceResultsScreen> {
         children: [
           Icon(
             Icons.calendar_today,
-            color: Color(0xFFFFE8BE),
+            color: Color(0xFFFFD966),
             size: 24,
           ),
           SizedBox(width: 12),
@@ -275,7 +277,7 @@ class _ProvinceResultsScreenState extends State<ProvinceResultsScreen> {
                 Text(
                   widget.province,
                   style: TextStyle(
-                    color: Color(0xFFFFE8BE),
+                    color: Color(0xFFFFD966),
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                   ),
@@ -283,7 +285,7 @@ class _ProvinceResultsScreenState extends State<ProvinceResultsScreen> {
                 Text(
                   _formatDate(widget.date),
                   style: TextStyle(
-                    color: Color(0xFFFFE8BE),
+                    color: Color(0xFFFFD966),
                     fontSize: 14,
                   ),
                 ),
@@ -316,7 +318,7 @@ class _ProvinceResultsScreenState extends State<ProvinceResultsScreen> {
                       Text(
                         'No results available for this date',
                         style: TextStyle(
-                          color: Color(0xFFFFE8BE),
+                          color: Color(0xFFFFD966),
                           fontSize: 16,
                         ),
                       ),
@@ -342,7 +344,7 @@ class _ProvinceResultsScreenState extends State<ProvinceResultsScreen> {
         child: Text(
           'No results available',
           style: TextStyle(
-            color: Color(0xFFFFE8BE),
+            color: Color(0xFFFFD966),
             fontSize: 16,
           ),
         ),
@@ -366,13 +368,14 @@ class _ProvinceResultsScreenState extends State<ProvinceResultsScreen> {
       padding: EdgeInsets.symmetric(horizontal: 16),
       child: Container(
         decoration: BoxDecoration(
-          color: Color(0xFFFFE8BE),
-          borderRadius: BorderRadius.circular(12),
+          color: Colors.white.withOpacity(0.06),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Color(0xFFFFD966), width: 1.5),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 4,
-              offset: Offset(0, 2),
+              color: Colors.black.withOpacity(0.25),
+              blurRadius: 10,
+              offset: Offset(0, 4),
             ),
           ],
         ),
@@ -384,16 +387,19 @@ class _ProvinceResultsScreenState extends State<ProvinceResultsScreen> {
               width: double.infinity,
               padding: EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Color(0xFFA5362D),
+                color: Colors.white.withOpacity(0.03),
                 borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(12),
-                  topRight: Radius.circular(12),
+                  topLeft: Radius.circular(20),
+                  topRight: Radius.circular(20),
+                ),
+                border: Border(
+                  bottom: BorderSide(color: Color(0xFFFFD966).withOpacity(0.3)),
                 ),
               ),
               child: Text(
                 'Lottery Results',
                 style: TextStyle(
-                  color: Color(0xFFFFE8BE),
+                  color: Color(0xFFFFD966),
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                 ),
@@ -419,11 +425,11 @@ class _ProvinceResultsScreenState extends State<ProvinceResultsScreen> {
   Widget _buildPrizeRow(String prizeName, List<String> numbers) {
     return Container(
       margin: EdgeInsets.only(bottom: 20),
-      padding: EdgeInsets.all(12),
+      padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.3),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey[300]!.withOpacity(0.5)),
+        color: Colors.white.withOpacity(0.03),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Color(0xFFFFD966).withOpacity(0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -436,7 +442,7 @@ class _ProvinceResultsScreenState extends State<ProvinceResultsScreen> {
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFFA5362D),
+                color: Color(0xFFFFD966),
               ),
             ),
           ),
@@ -451,14 +457,13 @@ class _ProvinceResultsScreenState extends State<ProvinceResultsScreen> {
               children: numbers.map((number) => Container(
                 padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: Colors.grey[400]!),
+                  color: Color(0xFFFFD966),
+                  borderRadius: BorderRadius.circular(8),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 2,
-                      offset: Offset(0, 1),
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 4,
+                      offset: Offset(0, 2),
                     ),
                   ],
                 ),
@@ -510,7 +515,7 @@ class _ProvinceResultsScreenState extends State<ProvinceResultsScreen> {
             child: Text(
               prizeName,
               style: TextStyle(
-                color: Color(0xFFFFE8BE),
+                color: Color(0xFFFFD966),
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
               ),

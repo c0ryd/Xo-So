@@ -64,55 +64,62 @@ class _TodaysDrawingsScreenState extends State<TodaysDrawingsScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent, // Transparent AppBar
         elevation: 0, // No shadow
-        title: const Text('Results'),
+        title: const Text('Results', style: TextStyle(color: Color(0xFFFFD966))),
+        iconTheme: IconThemeData(color: Color(0xFFFFD966)), // Gold back button
       ),
       body: VietnameseTiledBackground(
         child: SafeArea(
-          child: Column(
-          children: [
-            // Calendar
-            Container(
-              margin: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Color(0xFFFFE8BE),
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 4,
-                    offset: Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Column(
-                children: [
-                  _buildCalendarHeader(),
-                  _buildCalendarGrid(),
-                ],
-              ),
-            ),
-            // Selected day provinces
-            Expanded(
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16),
-                padding: const EdgeInsets.all(16),
+          child: SingleChildScrollView(
+            child: Column(
+            children: [
+              // Calendar
+              Container(
+                margin: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Color(0xFFFFE8BE),
-                  borderRadius: BorderRadius.circular(12),
+                  color: Colors.white.withOpacity(0.06),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Color(0xFFFFD966), width: 1.5),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 4,
-                      offset: Offset(0, 2),
+                      color: Colors.black.withOpacity(0.25),
+                      blurRadius: 10,
+                      offset: Offset(0, 4),
                     ),
                   ],
                 ),
+                child: Column(
+                  children: [
+                    _buildCalendarHeader(),
+                    _buildCalendarGrid(),
+                  ],
+                ),
+              ),
+              // Selected day provinces
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.06),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Color(0xFFFFD966), width: 1.5),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.25),
+                      blurRadius: 10,
+                      offset: Offset(0, 4),
+                    ),
+                  ],
+                ),
+                constraints: BoxConstraints(
+                  minHeight: 300, // Ensure minimum height
+                  maxHeight: MediaQuery.of(context).size.height * 0.6, // Maximum height
+                ),
                 child: _buildProvincesList(),
               ),
-            ),
-            SizedBox(height: 16),
-          ],
-        ),
+              SizedBox(height: 16),
+            ],
+          ),
+          ),
         ),
       ),
     );
@@ -122,17 +129,20 @@ class _TodaysDrawingsScreenState extends State<TodaysDrawingsScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Color(0xFFA5362D),
+        color: Colors.white.withOpacity(0.03),
         borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(12),
-          topRight: Radius.circular(12),
+          topLeft: Radius.circular(20),
+          topRight: Radius.circular(20),
+        ),
+        border: Border(
+          bottom: BorderSide(color: Color(0xFFFFD966).withOpacity(0.3)),
         ),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           IconButton(
-            icon: Icon(Icons.chevron_left, color: Color(0xFFFFE8BE)),
+            icon: Icon(Icons.chevron_left, color: Color(0xFFFFD966)),
             onPressed: () {
               setState(() {
                 _focusedDate = DateTime(_focusedDate.year, _focusedDate.month - 1);
@@ -142,13 +152,13 @@ class _TodaysDrawingsScreenState extends State<TodaysDrawingsScreen> {
           Text(
             '${_getMonthName(_focusedDate.month)} ${_focusedDate.year}',
             style: TextStyle(
-              color: Color(0xFFFFE8BE),
+              color: Color(0xFFFFD966),
               fontSize: 18,
               fontWeight: FontWeight.bold,
             ),
           ),
           IconButton(
-            icon: Icon(Icons.chevron_right, color: Color(0xFFFFE8BE)),
+            icon: Icon(Icons.chevron_right, color: Color(0xFFFFD966)),
             onPressed: () {
               setState(() {
                 _focusedDate = DateTime(_focusedDate.year, _focusedDate.month + 1);
@@ -179,7 +189,7 @@ class _TodaysDrawingsScreenState extends State<TodaysDrawingsScreen> {
                           day,
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            color: Colors.grey[600],
+                            color: Color(0xFFFFD966).withOpacity(0.8),
                           ),
                         ),
                       ),
@@ -213,13 +223,13 @@ class _TodaysDrawingsScreenState extends State<TodaysDrawingsScreen> {
                       margin: EdgeInsets.all(2),
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? Color(0xFFA5362D)
+                            ? Color(0xFFFFD966)
                             : isToday
-                                ? Colors.orange.withOpacity(0.3)
+                                ? Color(0xFFFFD966).withOpacity(0.2)
                                 : Colors.transparent,
                         borderRadius: BorderRadius.circular(8),
                         border: isToday && !isSelected
-                            ? Border.all(color: Colors.orange, width: 2)
+                            ? Border.all(color: Color(0xFFFFD966), width: 2)
                             : null,
                       ),
                       child: Stack(
@@ -229,8 +239,8 @@ class _TodaysDrawingsScreenState extends State<TodaysDrawingsScreen> {
                               dayNumber.toString(),
                               style: TextStyle(
                                 color: isSelected
-                                    ? Color(0xFFFFE8BE)
-                                    : Colors.black87,
+                                    ? Colors.black87
+                                    : Colors.white,
                                 fontWeight: isSelected || isToday
                                     ? FontWeight.bold
                                     : FontWeight.normal,
@@ -268,9 +278,9 @@ class _TodaysDrawingsScreenState extends State<TodaysDrawingsScreen> {
         Text(
           'Provinces with drawings on ${_formatSelectedDate()}:',
           style: TextStyle(
-            fontSize: 16,
+            fontSize: 18,
             fontWeight: FontWeight.bold,
-            color: Color(0xFFA5362D),
+            color: Color(0xFFFFD966),
           ),
         ),
         SizedBox(height: 12),
@@ -280,7 +290,7 @@ class _TodaysDrawingsScreenState extends State<TodaysDrawingsScreen> {
                   child: Text(
                     'No drawings scheduled for this day',
                     style: TextStyle(
-                      color: Colors.grey[600],
+                      color: Colors.white.withOpacity(0.8),
                       fontSize: 14,
                     ),
                   ),
@@ -305,14 +315,14 @@ class _TodaysDrawingsScreenState extends State<TodaysDrawingsScreen> {
                         margin: EdgeInsets.only(bottom: 8),
                         padding: EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.grey[300]!),
+                          color: Colors.white.withOpacity(0.03),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Color(0xFFFFD966).withOpacity(0.3)),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.05),
-                              blurRadius: 2,
-                              offset: Offset(0, 1),
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 4,
+                              offset: Offset(0, 2),
                             ),
                           ],
                         ),
@@ -320,7 +330,7 @@ class _TodaysDrawingsScreenState extends State<TodaysDrawingsScreen> {
                           children: [
                             Icon(
                               Icons.location_on,
-                              color: Color(0xFFA5362D),
+                              color: Color(0xFFFFD966),
                               size: 20,
                             ),
                             SizedBox(width: 8),
@@ -330,12 +340,13 @@ class _TodaysDrawingsScreenState extends State<TodaysDrawingsScreen> {
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w500,
+                                  color: Colors.white,
                                 ),
                               ),
                             ),
                             Icon(
                               Icons.arrow_forward_ios,
-                              color: Colors.grey[400],
+                              color: Color(0xFFFFD966).withOpacity(0.6),
                               size: 16,
                             ),
                           ],

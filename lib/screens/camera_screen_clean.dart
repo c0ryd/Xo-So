@@ -76,7 +76,7 @@ class CameraScreen extends StatefulWidget {
   _CameraScreenState createState() => _CameraScreenState();
 }
 
-class _CameraScreenState extends State<CameraScreen> {
+class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver {
   final TextRecognizer _textRecognizer = TextRecognizer();
   CameraController? _cameraController;
   
@@ -116,9 +116,16 @@ class _CameraScreenState extends State<CameraScreen> {
   // View state to track if we're showing results
   bool _showingResults = false;
 
+  // App lifecycle state
+  late AppLifecycleState _appLifecycleState;
+  bool _wasAutoScanningBeforePause = false; // Track if we were scanning before going to background
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _appLifecycleState = WidgetsBinding.instance.lifecycleState ?? AppLifecycleState.resumed;
+    
     _loadCitiesData();
     _loadProvinceSchedule();
     _createBannerAd(); // Create ad early for faster loading
@@ -133,7 +140,55 @@ class _CameraScreenState extends State<CameraScreen> {
     _cameraController?.dispose();
     _textRecognizer.close();
     _disposeBannerAd();
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    print('🔄 App lifecycle state changed from ${_appLifecycleState.name} to ${state.name}');
+    
+    if (_appLifecycleState != state) {
+      _appLifecycleState = state;
+      
+      switch (state) {
+        case AppLifecycleState.paused:
+        case AppLifecycleState.inactive:
+        case AppLifecycleState.detached:
+        case AppLifecycleState.hidden:
+          // App is going to background, being minimized, device locked, or hidden
+          print('🛑 App going to background/inactive - stopping auto-scanning');
+          print('🔍 Was auto-scanning before pause: $_isAutoScanning');
+          
+          // Remember if we were auto-scanning before pausing
+          _wasAutoScanningBeforePause = _isAutoScanning;
+          
+          // Force stop auto-scanning and cancel any timers
+          _forceStopAutoScanning();
+          break;
+          
+        case AppLifecycleState.resumed:
+          // App is back in foreground
+          print('▶️ App resumed - was previously scanning: $_wasAutoScanningBeforePause');
+          
+          // Only restart auto-scanning if we were scanning before AND camera is ready
+          if (_wasAutoScanningBeforePause && 
+              _cameraController != null && 
+              _cameraController!.value.isInitialized &&
+              !_showingResults) {
+            print('🔄 Restarting auto-scanning after resume');
+            Future.delayed(Duration(milliseconds: 1000), () {
+              if (mounted && _appLifecycleState == AppLifecycleState.resumed) {
+                _startAutoScanning();
+              }
+            });
+          }
+          
+          // Reset the flag
+          _wasAutoScanningBeforePause = false;
+          break;
+      }
+    }
   }
 
   // TODO: Copy all the working camera methods from LotteryOCRScreen in main.dart
@@ -160,9 +215,9 @@ class _CameraScreenState extends State<CameraScreen> {
           _isCameraInitialized = true;
         });
         
-        // Start auto-scanning automatically after a short delay
+        // Start auto-scanning automatically after a short delay, but only if app is active
         Future.delayed(Duration(milliseconds: 500), () {
-          if (mounted) {
+          if (mounted && _appLifecycleState == AppLifecycleState.resumed) {
             _startAutoScanning();
           }
         });
@@ -201,9 +256,11 @@ class _CameraScreenState extends State<CameraScreen> {
 
   void _stopAutoScanning() {
     _autoScanTimer?.cancel();
-    setState(() {
-      _isAutoScanning = false;
-    });
+    if (mounted) {
+      setState(() {
+        _isAutoScanning = false;
+      });
+    }
     
     // Dispose banner ad when scanning stops
     _disposeBannerAd();
@@ -211,10 +268,31 @@ class _CameraScreenState extends State<CameraScreen> {
     print('=== AUTO-SCANNING STOPPED ===');
   }
 
+  void _forceStopAutoScanning() {
+    // More aggressive stop that ensures everything is cancelled
+    _autoScanTimer?.cancel();
+    _autoScanTimer = null;
+    
+    if (mounted) {
+      setState(() {
+        _isAutoScanning = false;
+      });
+    }
+    
+    print('🛑 Force stopped auto-scanning');
+  }
+
   Future<void> _performAutoScan() async {
     if (!_isAutoScanning || _autoScanAttempts >= _maxAutoScanAttempts) {
       print('Auto-scan stopping: isAutoScanning=$_isAutoScanning, attempts=$_autoScanAttempts');
       _stopAutoScanning();
+      return;
+    }
+    
+    // Check if app is still active before scanning
+    if (_appLifecycleState != AppLifecycleState.resumed) {
+      print('Auto-scan stopping: app not in foreground (${_appLifecycleState.name})');
+      _forceStopAutoScanning();
       return;
     }
     
@@ -297,7 +375,7 @@ class _CameraScreenState extends State<CameraScreen> {
           ticketNumber = ticketResult;
           rawText = voted['rawText'] ?? '';
           isProcessing = false;
-          _isCameraInitialized = false;
+          // Keep camera initialized so it shows when user hits "Scan Another"
           // Show results overlay immediately - keep camera alive
           _showingResults = true;
           _processedImagePath = voted['imagePath'];
@@ -308,14 +386,21 @@ class _CameraScreenState extends State<CameraScreen> {
         return;
       }
 
-      // Schedule next scan faster
-      if (_isAutoScanning && _autoScanAttempts < _maxAutoScanAttempts) {
+      // Schedule next scan faster, but only if app is still active
+      if (_isAutoScanning && 
+          _autoScanAttempts < _maxAutoScanAttempts && 
+          _appLifecycleState == AppLifecycleState.resumed) {
         print('Scheduling next auto-scan in 500 ms...');
         _autoScanTimer = Timer(Duration(milliseconds: 500), () {
-          _performAutoScan();
+          if (_appLifecycleState == AppLifecycleState.resumed) {
+            _performAutoScan();
+          } else {
+            print('App not resumed, cancelling scheduled scan');
+            _forceStopAutoScanning();
+          }
         });
       } else {
-        print('Auto-scan stopped: attempts=${_autoScanAttempts}, maxAttempts=${_maxAutoScanAttempts}');
+        print('Auto-scan stopped: scanning=$_isAutoScanning, attempts=${_autoScanAttempts}, maxAttempts=${_maxAutoScanAttempts}, appState=${_appLifecycleState.name}');
         _stopAutoScanning();
       }
 
@@ -845,8 +930,10 @@ class _CameraScreenState extends State<CameraScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent, // Transparent AppBar
         elevation: 0, // No shadow
-        title: Text('Scan Ticket'),
+        title: Text('Scan Ticket', style: TextStyle(color: Color(0xFFFFD966))),
+        iconTheme: IconThemeData(color: Color(0xFFFFD966)), // Gold back button
         leading: (_isCameraInitialized) ? BackButton(
+          color: Color(0xFFFFD966), // Gold back button
           onPressed: () {
             _stopAutoScanning();
             Navigator.pop(context);
@@ -863,7 +950,7 @@ class _CameraScreenState extends State<CameraScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-            if (_processedImagePath != null) ...[
+            if (_processedImagePath != null && !_showingResults) ...[
               Container(
                 width: double.infinity,
                 decoration: BoxDecoration(
@@ -882,7 +969,7 @@ class _CameraScreenState extends State<CameraScreen> {
               SizedBox(height: 8),
             ],
 
-                          if ((_isAutoScanning || _isCameraInitialized) && _isBannerAdReady && _bannerAd != null) ...[
+                          if ((_isAutoScanning || _isCameraInitialized) && _isBannerAdReady && _bannerAd != null && !_showingResults) ...[
               Container(
                 alignment: Alignment.center,
                 width: _bannerAd!.size.width.toDouble(),
@@ -892,7 +979,7 @@ class _CameraScreenState extends State<CameraScreen> {
               SizedBox(height: 16),
             ],
 
-            if (_isCameraInitialized && _cameraController != null) ...[
+            if (_isCameraInitialized && _cameraController != null && !_showingResults) ...[
               Container(
                 height: 600,
                 width: double.infinity,
@@ -931,13 +1018,20 @@ class _CameraScreenState extends State<CameraScreen> {
               ),
               SizedBox(height: 20),
 
-              if (_isAutoScanning) ...[
+              if (_isAutoScanning && !_showingResults) ...[
                 Container(
-                  padding: EdgeInsets.all(16),
+                  padding: EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: Colors.orange[100],
-                    border: Border.all(color: Colors.orange, width: 2),
-                    borderRadius: BorderRadius.circular(8),
+                    color: Colors.white.withOpacity(0.06),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Color(0xFFFFD966), width: 1.5),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.25),
+                        blurRadius: 10,
+                        offset: Offset(0, 4),
+                      ),
+                    ],
                   ),
                   child: Column(
                     children: [
@@ -949,16 +1043,16 @@ class _CameraScreenState extends State<CameraScreen> {
                             height: 20,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.orange),
+                              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFFD966)),
                             ),
                           ),
                           SizedBox(width: 12),
                           Text(
                             'Auto-Scanning...',
                             style: TextStyle(
-                              fontSize: 16,
+                              fontSize: 18,
                               fontWeight: FontWeight.bold,
-                              color: Colors.orange[800],
+                              color: Color(0xFFFFD966),
                             ),
                           ),
                         ],
@@ -967,8 +1061,8 @@ class _CameraScreenState extends State<CameraScreen> {
                       Text(
                         'Found: ${_getFoundFieldsText()}',
                         style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.orange[700],
+                          fontSize: 14,
+                          color: Colors.white.withOpacity(0.8),
                           fontWeight: FontWeight.w500,
                         ),
                         textAlign: TextAlign.center,
@@ -977,11 +1071,11 @@ class _CameraScreenState extends State<CameraScreen> {
                       ElevatedButton(
                         onPressed: _stopAutoScanning,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red,
+                          backgroundColor: Colors.red.shade400,
                           foregroundColor: Colors.white,
                           padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(12),
                           ),
                         ),
                         child: Text(
@@ -997,7 +1091,7 @@ class _CameraScreenState extends State<CameraScreen> {
 
             SizedBox(height: 20),
 
-            if (_processedImagePath != null && _hasMissingValues()) ...[
+            if (_processedImagePath != null && _hasMissingValues() && !_showingResults) ...[
               Row(
                 children: [
                   Expanded(
@@ -1040,15 +1134,22 @@ class _CameraScreenState extends State<CameraScreen> {
           // Results overlay (redesigned)
           if (_showingResults) ...[
             Container(
-              color: Colors.black.withOpacity(0.8),
+              color: Colors.red.withOpacity(0.3),
               child: Center(
                 child: Container(
                   margin: EdgeInsets.all(20),
                   padding: EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: Color(0xFFFFE8BE),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Color(0xFFA5362D), width: 2),
+                    color: Colors.white.withOpacity(0.06),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Color(0xFFFFD966), width: 1.5),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.25),
+                        blurRadius: 10,
+                        offset: Offset(0, 4),
+                      ),
+                    ],
                   ),
                   child: SingleChildScrollView(
                     child: Column(
@@ -1135,9 +1236,9 @@ class _CameraScreenState extends State<CameraScreen> {
                         Container(
                           padding: EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Color(0xFFA5362D), width: 1),
+                            color: Colors.white.withOpacity(0.03),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Color(0xFFFFD966).withOpacity(0.3), width: 1),
                           ),
                           child: Column(
                             children: [
@@ -1160,9 +1261,9 @@ class _CameraScreenState extends State<CameraScreen> {
                         Container(
                           padding: EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Color(0xFFA5362D), width: 1),
+                            color: Colors.white.withOpacity(0.03),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Color(0xFFFFD966).withOpacity(0.3), width: 1),
                           ),
                           child: Column(
                             children: [
@@ -1171,7 +1272,7 @@ class _CameraScreenState extends State<CameraScreen> {
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w500,
-                                  color: Colors.black87,
+                                  color: Color(0xFFFFD966).withOpacity(0.8),
                                 ),
                               ),
                               SizedBox(height: 8),
@@ -1188,10 +1289,10 @@ class _CameraScreenState extends State<CameraScreen> {
                                       width: 28,
                                       height: 28,
                                       decoration: BoxDecoration(
-                                        color: _ticketQuantity > 1 ? Color(0xFFA5362D) : Colors.grey[300],
+                                        color: _ticketQuantity > 1 ? Color(0xFFFFD966) : Colors.grey[600],
                                         borderRadius: BorderRadius.circular(14),
                                       ),
-                                      child: Icon(Icons.remove, color: Colors.white, size: 16),
+                                      child: Icon(Icons.remove, color: _ticketQuantity > 1 ? Colors.black87 : Colors.white, size: 16),
                                     ),
                                   ),
                                   Text(
@@ -1199,7 +1300,7 @@ class _CameraScreenState extends State<CameraScreen> {
                                     style: TextStyle(
                                       fontSize: 18,
                                       fontWeight: FontWeight.bold,
-                                      color: Colors.black87,
+                                      color: Colors.white,
                                     ),
                                   ),
                                   GestureDetector(
@@ -1212,10 +1313,10 @@ class _CameraScreenState extends State<CameraScreen> {
                                       width: 28,
                                       height: 28,
                                       decoration: BoxDecoration(
-                                        color: _ticketQuantity < 99 ? Color(0xFFA5362D) : Colors.grey[300],
+                                        color: _ticketQuantity < 99 ? Color(0xFFFFD966) : Colors.grey[600],
                                         borderRadius: BorderRadius.circular(14),
                                       ),
-                                      child: Icon(Icons.add, color: Colors.white, size: 16),
+                                      child: Icon(Icons.add, color: _ticketQuantity < 99 ? Colors.black87 : Colors.white, size: 16),
                                     ),
                                   ),
                                 ],
@@ -1264,11 +1365,11 @@ class _CameraScreenState extends State<CameraScreen> {
                                   _startAutoScanning();
                                 },
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: Color(0xFFA5362D),
-                                  foregroundColor: Colors.white,
+                                  backgroundColor: Color(0xFFFFD966),
+                                  foregroundColor: Colors.black87,
                                   padding: EdgeInsets.symmetric(vertical: 12),
                                   shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
+                                    borderRadius: BorderRadius.circular(12),
                                   ),
                                 ),
                                 child: Text(
@@ -1299,11 +1400,12 @@ class _CameraScreenState extends State<CameraScreen> {
                                   Navigator.pop(context);
                                 },
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.grey[600],
+                                  backgroundColor: Colors.white.withOpacity(0.06),
                                   foregroundColor: Colors.white,
+                                  side: BorderSide(color: Color(0xFFFFD966).withOpacity(0.3)),
                                   padding: EdgeInsets.symmetric(vertical: 12),
                                   shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
+                                    borderRadius: BorderRadius.circular(12),
                                   ),
                                 ),
                                 child: Text(
@@ -1542,19 +1644,19 @@ class _CameraScreenState extends State<CameraScreen> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          backgroundColor: Color(0xFFFFE8BE),
+          backgroundColor: Colors.white.withOpacity(0.06),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15),
-            side: BorderSide(color: Color(0xFFA5362D), width: 2),
+            borderRadius: BorderRadius.circular(20),
+            side: BorderSide(color: Color(0xFFFFD966), width: 1.5),
           ),
           title: Row(
             children: [
-              Icon(Icons.celebration, color: Colors.orange, size: 30),
+              Icon(Icons.celebration, color: Color(0xFFFFD966), size: 30),
               SizedBox(width: 10),
               Text(
                 'Congratulations!',
                 style: TextStyle(
-                  color: Color(0xFFA5362D),
+                  color: Color(0xFFFFD966),
                   fontWeight: FontWeight.bold,
                   fontSize: 20,
                 ),
@@ -1617,7 +1719,7 @@ class _CameraScreenState extends State<CameraScreen> {
               child: Text(
                 'Amazing!',
                 style: TextStyle(
-                  color: Color(0xFFA5362D),
+                  color: Color(0xFFFFD966),
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
                 ),
@@ -1635,10 +1737,10 @@ class _CameraScreenState extends State<CameraScreen> {
     return Container(
       padding: EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: isFound ? Color(0xFFF8F9FA) : Color(0xFFFFF5F5),
-        borderRadius: BorderRadius.circular(6),
+        color: Colors.white.withOpacity(0.02),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: isFound ? Colors.green[300]! : Colors.red[300]!,
+          color: Color(0xFFFFD966).withOpacity(0.2),
           width: 1,
         ),
       ),
@@ -1649,7 +1751,7 @@ class _CameraScreenState extends State<CameraScreen> {
             children: [
               Icon(
                 icon,
-                color: isFound ? Colors.green[700] : Colors.red[700],
+                color: Color(0xFFFFD966),
                 size: 16,
               ),
               SizedBox(width: 4),
@@ -1657,14 +1759,14 @@ class _CameraScreenState extends State<CameraScreen> {
                 label,
                 style: TextStyle(
                   fontSize: 11,
-                  color: Colors.grey[600],
+                  color: Color(0xFFFFD966).withOpacity(0.8),
                   fontWeight: FontWeight.w500,
                 ),
               ),
               SizedBox(width: 4),
               Icon(
                 isFound ? Icons.check_circle : Icons.cancel,
-                color: isFound ? Colors.green[600] : Colors.red[600],
+                color: isFound ? Color(0xFFFFD966) : Colors.red.shade300,
                 size: 14,
               ),
             ],
@@ -1674,7 +1776,7 @@ class _CameraScreenState extends State<CameraScreen> {
             value,
             style: TextStyle(
               fontSize: 13,
-              color: isFound ? Colors.black87 : Colors.red[700],
+              color: isFound ? Colors.white : Colors.red.shade300,
               fontWeight: FontWeight.bold,
             ),
             textAlign: TextAlign.center,
@@ -1749,30 +1851,19 @@ class _CameraScreenState extends State<CameraScreen> {
   Widget _buildInfoRow(String label, String value, IconData icon) {
     final isFound = value != 'Not found';
     return Container(
-      padding: EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+      padding: EdgeInsets.all(12),
       margin: EdgeInsets.symmetric(vertical: 4),
       decoration: BoxDecoration(
-        color: isFound ? Color(0xFFF8F9FA) : Color(0xFFFFF5F5),
-        borderRadius: BorderRadius.circular(8),
+        color: Colors.white.withOpacity(0.03),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isFound ? Colors.green[300]! : Colors.red[300]!,
+          color: Color(0xFFFFD966).withOpacity(0.3),
           width: 1,
         ),
       ),
       child: Row(
         children: [
-          Container(
-            padding: EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: isFound ? Colors.green[100] : Colors.red[100],
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Icon(
-              icon,
-              color: isFound ? Colors.green[700] : Colors.red[700],
-              size: 20,
-            ),
-          ),
+          Icon(icon, color: Color(0xFFFFD966), size: 20),
           SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -1782,45 +1873,37 @@ class _CameraScreenState extends State<CameraScreen> {
                   label,
                   style: TextStyle(
                     fontSize: 12,
-                    color: Colors.grey[600],
+                    color: Color(0xFFFFD966).withOpacity(0.8),
                     fontWeight: FontWeight.w500,
-                    letterSpacing: 0.5,
                   ),
                 ),
                 SizedBox(height: 4),
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: isFound ? Colors.white : Colors.red[50],
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(
-                      color: isFound ? Colors.grey[300]! : Colors.red[200]!,
-                      width: 1,
-                    ),
-                  ),
-                  child: Text(
-                    value,
-                    style: TextStyle(
-                      fontSize: 18,
-                      color: isFound ? Colors.black87 : Colors.red[700],
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.5,
-                    ),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: isFound ? Colors.white : Colors.red.shade300,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ],
             ),
           ),
           Container(
-            padding: EdgeInsets.all(6),
+            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: isFound ? Colors.green[600] : Colors.red[600],
+              color: isFound 
+                ? Color(0xFFFFD966).withOpacity(0.2) 
+                : Colors.red.withOpacity(0.2),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(
-              isFound ? Icons.check : Icons.close,
-              color: Colors.white,
-              size: 16,
+            child: Text(
+              isFound ? 'Found' : 'Missing',
+              style: TextStyle(
+                color: isFound ? Color(0xFFFFD966) : Colors.red.shade300,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],
@@ -1925,11 +2008,11 @@ class _CameraScreenState extends State<CameraScreen> {
   /// Get the header color based on winner status
   Color _getHeaderColor() {
     if (_isWinner == true) {
-      return Colors.green[700]!;
+      return Color(0xFFFFD966); // Gold for winners
     } else if (_isWinner == false) {
-      return Colors.red[700]!;
+      return Colors.red.shade300; // Light red for not a winner
     } else {
-      return Color(0xFFA5362D);
+      return Color(0xFFFFD966); // Gold for scan complete
     }
   }
 

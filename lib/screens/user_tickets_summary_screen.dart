@@ -183,10 +183,12 @@ class _UserTicketsSummaryScreenState extends State<UserTicketsSummaryScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent, // Transparent AppBar
         elevation: 0, // No shadow
-        title: const Text('My Tickets'),
+        title: const Text('My Tickets', style: TextStyle(color: Color(0xFFFFD966))),
+        iconTheme: IconThemeData(color: Color(0xFFFFD966)), // Gold back button and refresh icon
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
+            color: Color(0xFFFFD966), // Gold refresh icon
             onPressed: _fetchUserTickets,
           ),
         ],
@@ -258,9 +260,20 @@ class _UserTicketsSummaryScreenState extends State<UserTicketsSummaryScreen> {
           return sum;
         });
 
-    return Card(
+    return Container(
       margin: const EdgeInsets.only(bottom: 20),
-      color: Color(0xFFA5362D), // Earthy red-brown for date cards
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Color(0xFFFFD966), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.25),
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -269,7 +282,7 @@ class _UserTicketsSummaryScreenState extends State<UserTicketsSummaryScreen> {
             // Date header
             Row(
               children: [
-                Icon(Icons.calendar_today, color: Color(0xFFFFE8BE), size: 20),
+                Icon(Icons.calendar_today, color: Color(0xFFFFD966), size: 20),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -277,7 +290,7 @@ class _UserTicketsSummaryScreenState extends State<UserTicketsSummaryScreen> {
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFFFFE8BE),
+                      color: Color(0xFFFFD966),
                     ),
                   ),
                 ),
@@ -291,7 +304,7 @@ class _UserTicketsSummaryScreenState extends State<UserTicketsSummaryScreen> {
                     '$totalTickets ticket${totalTickets != 1 ? 's' : ''}',
                     style: TextStyle(
                       fontSize: 12,
-                      color: Color(0xFFFFE8BE),
+                      color: Color(0xFFFFD966),
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -316,7 +329,7 @@ class _UserTicketsSummaryScreenState extends State<UserTicketsSummaryScreen> {
                       child: Text(
                         'Total Winnings: ${totalWinnings.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')} VND',
                         style: TextStyle(
-                          color: Color(0xFFFFE8BE),
+                          color: Color(0xFFFFD966),
                           fontWeight: FontWeight.bold,
                           fontSize: 14,
                         ),
@@ -359,9 +372,9 @@ class _UserTicketsSummaryScreenState extends State<UserTicketsSummaryScreen> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Color(0xFFFFE8BE), // Original cream for province cards
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey[300]!),
+        color: Colors.white.withOpacity(0.04),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Color(0xFFFFD966).withOpacity(0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -378,7 +391,7 @@ class _UserTicketsSummaryScreenState extends State<UserTicketsSummaryScreen> {
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: hasPendingTickets ? Colors.orange[700] : Colors.black87,
+                          color: Color(0xFFFFD966),
                         ),
                       ),
                       if (hasPendingTickets) ...[
@@ -388,7 +401,7 @@ class _UserTicketsSummaryScreenState extends State<UserTicketsSummaryScreen> {
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            color: Colors.orange[700],
+                            color: Colors.orange.shade300,
                           ),
                         ),
                       ],
@@ -496,23 +509,23 @@ class _UserTicketsSummaryScreenState extends State<UserTicketsSummaryScreen> {
     
     if (!hasBeenChecked) {
       borderColor = Colors.orange; // Pending
-      pillBackgroundColor = Colors.orange.withOpacity(0.2); // Orange pill for pending
-      pillTextColor = Colors.orange[700]!; // Darker orange text
+      pillBackgroundColor = Colors.orange; // Solid orange pill for pending
+      pillTextColor = Colors.white; // White text for visibility
     } else if (isWinner) {
       borderColor = Colors.green; // Winner
-      pillBackgroundColor = Colors.green.withOpacity(0.2); // Green pill for winner
-      pillTextColor = Colors.green[700]!; // Darker green text
+      pillBackgroundColor = Colors.green; // Solid green pill for winner
+      pillTextColor = Colors.white; // White text for visibility
     } else {
       borderColor = Colors.red; // Not a winner
-      pillBackgroundColor = Color(0xFFA5362D).withOpacity(0.2); // Existing red-brown pill for not winner
-      pillTextColor = Color(0xFFA5362D); // Existing red-brown text
+      pillBackgroundColor = Colors.red.shade400; // Solid red pill for not winner
+      pillTextColor = Colors.white; // White text for visibility
     }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Color(0xFFFFE8BE), // Original cream for ticket cards
+        color: Colors.white.withOpacity(0.02),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: borderColor,
@@ -737,7 +750,7 @@ class _UserTicketsSummaryScreenState extends State<UserTicketsSummaryScreen> {
       return Text(
         '#$ticketNumber',
         style: TextStyle(
-          color: Colors.black87,
+          color: Color(0xFFFFD966),
           fontSize: 22,
           fontWeight: FontWeight.w900,
         ),
@@ -769,7 +782,7 @@ class _UserTicketsSummaryScreenState extends State<UserTicketsSummaryScreen> {
         ],
       ),
       style: TextStyle(
-        color: Colors.black87,
+        color: Color(0xFFFFD966),
         fontSize: 22,
         fontWeight: FontWeight.w900,
       ),
