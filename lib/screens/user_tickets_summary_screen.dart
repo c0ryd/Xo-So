@@ -584,99 +584,115 @@ class _UserTicketsSummaryScreenState extends State<UserTicketsSummaryScreen> {
                 ],
               ),
               const SizedBox(height: 12),
-              // Image and ticket number row
-              Row(
-                children: [
-                  // Ticket image
-                  Container(
-                    width: 90,
-                    height: 60,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[300],
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.grey[400]!),
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: FutureBuilder<File?>(
-                        future: ImageStorageService.getTicketImage(imagePath.isNotEmpty ? imagePath : null),
-                        builder: (context, snapshot) {
-                          if (snapshot.connectionState == ConnectionState.waiting) {
-                            return Center(
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.grey),
-                              ),
-                            );
-                          }
-                          
-                          if (snapshot.hasData && snapshot.data != null) {
-                            return Image.file(
-                              snapshot.data!,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return _buildPlaceholderIcon();
+              // Image and ticket number row (conditionally show image based on storage setting)
+              FutureBuilder<bool>(
+                future: ImageStorageService.isImageStorageEnabled(),
+                builder: (context, storageSnapshot) {
+                  final isStorageEnabled = storageSnapshot.data ?? true;
+                  
+                  return Row(
+                    children: [
+                      // Ticket image (only show if storage is enabled)
+                      if (isStorageEnabled) ...[
+                        Container(
+                          width: 90,
+                          height: 60,
+                          decoration: BoxDecoration(
+                            color: Colors.grey[300],
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.grey[400]!),
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: FutureBuilder<File?>(
+                              future: ImageStorageService.getTicketImage(imagePath.isNotEmpty ? imagePath : null),
+                              builder: (context, snapshot) {
+                                if (snapshot.connectionState == ConnectionState.waiting) {
+                                  return Center(
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.grey),
+                                    ),
+                                  );
+                                }
+                                
+                                if (snapshot.hasData && snapshot.data != null) {
+                                  return Image.file(
+                                    snapshot.data!,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) {
+                                      return _buildPlaceholderIcon();
+                                    },
+                                  );
+                                } else {
+                                  return _buildPlaceholderIcon();
+                                }
                               },
-                            );
-                          } else {
-                            return _buildPlaceholderIcon();
-                          }
-                        },
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                      ],
+                      // Ticket number (highlighted for winners)
+                      Expanded(
+                        child: _buildHighlightedTicketNumber(ticketNumber, matchedTiers),
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  // Ticket number (highlighted for winners)
-                  Expanded(
-                    child: _buildHighlightedTicketNumber(ticketNumber, matchedTiers),
-                  ),
-                ],
+                    ],
+                  );
+                },
               ),
             ],
           )
-        : Row(
-            children: [
-              // Ticket image (old horizontal layout for pending/not-winner)
-              Container(
-                width: 90,
-                height: 60,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey[400]!),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: FutureBuilder<File?>(
-                    future: ImageStorageService.getTicketImage(imagePath.isNotEmpty ? imagePath : null),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return Center(
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.grey),
-                          ),
-                        );
-                      }
-                      
-                      if (snapshot.hasData && snapshot.data != null) {
-                        return Image.file(
-                          snapshot.data!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return _buildPlaceholderIcon();
+        : FutureBuilder<bool>(
+            future: ImageStorageService.isImageStorageEnabled(),
+            builder: (context, storageSnapshot) {
+              final isStorageEnabled = storageSnapshot.data ?? true;
+              
+              return Row(
+                children: [
+                  // Ticket image (only show if storage is enabled)
+                  if (isStorageEnabled) ...[
+                    Container(
+                      width: 90,
+                      height: 60,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey[400]!),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: FutureBuilder<File?>(
+                          future: ImageStorageService.getTicketImage(imagePath.isNotEmpty ? imagePath : null),
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState == ConnectionState.waiting) {
+                              return Center(
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.grey),
+                                ),
+                              );
+                            }
+                            
+                            if (snapshot.hasData && snapshot.data != null) {
+                              return Image.file(
+                                snapshot.data!,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return _buildPlaceholderIcon();
+                                },
+                              );
+                            } else {
+                              return _buildPlaceholderIcon();
+                            }
                           },
-                        );
-                      } else {
-                        return _buildPlaceholderIcon();
-                      }
-                    },
-                  ),
-                ),
-              ),
-              const SizedBox(width: 16),
-              // Ticket info (old horizontal layout)
-              Expanded(
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                  ],
+                  // Ticket info (horizontal layout)
+                  Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -708,7 +724,9 @@ class _UserTicketsSummaryScreenState extends State<UserTicketsSummaryScreen> {
                 ),
               ),
             ],
-          ),
+          );
+        },
+      ),
     );
   }
 

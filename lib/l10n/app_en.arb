@@ -102,6 +102,18 @@
   "@logout": {
     "description": "Logout button text"
   },
+  "saveImagesLocally": "Save Images Locally",
+  "@saveImagesLocally": {
+    "description": "Setting to enable/disable local image storage"
+  },
+  "imageStorageEnabled": "Image storage enabled",
+  "@imageStorageEnabled": {
+    "description": "Message when image storage is turned on"
+  },
+  "imageStorageDisabled": "Image storage disabled",
+  "@imageStorageDisabled": {
+    "description": "Message when image storage is turned off"
+  },
   "settings": "Settings",
   "@settings": {
     "description": "Settings menu item"

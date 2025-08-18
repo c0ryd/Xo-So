@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:async';
 import '../widgets/vietnamese_tiled_background.dart';
 import '../services/supabase_auth_service.dart';
 import '../services/language_service.dart';
+import '../services/image_storage_service.dart';
 import 'camera_screen_clean.dart'; // Import the clean camera screen
 
 class HomeScreen extends StatefulWidget {
@@ -13,8 +16,88 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   bool _isDrawerOpen = false;
+  
+  // Shimmer effect variables
+  late AnimationController _shimmerController;
+  late Animation<double> _shimmerAnimation;
+  Timer? _shimmerTimer;
+  bool _hasBeenTapped = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeShimmer();
+  }
+
+  @override
+  void dispose() {
+    _shimmerController.dispose();
+    _shimmerTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _initializeShimmer() async {
+    // Set up the shimmer animation
+    _shimmerController = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    );
+    
+    _shimmerAnimation = Tween<double>(
+      begin: -1.0,
+      end: 2.0,
+    ).animate(CurvedAnimation(
+      parent: _shimmerController,
+      curve: Curves.easeInOut,
+    ));
+
+    // Check if the coin has been tapped before
+    final prefs = await SharedPreferences.getInstance();
+    _hasBeenTapped = prefs.getBool('coin_has_been_tapped') ?? false;
+
+    // Only start shimmer if it hasn't been tapped
+    if (!_hasBeenTapped) {
+      _startShimmerTimer();
+    }
+  }
+
+  void _startShimmerTimer() {
+    // Start shimmer immediately, then repeat every 3 seconds
+    _shimmerController.forward().then((_) {
+      _shimmerController.reset();
+    });
+    
+    _shimmerTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
+      if (!_hasBeenTapped && mounted) {
+        _shimmerController.forward().then((_) {
+          _shimmerController.reset();
+        });
+      } else {
+        timer.cancel();
+      }
+    });
+  }
+
+  Future<void> _onCoinTapped() async {
+    // Mark as tapped and save to preferences
+    setState(() {
+      _hasBeenTapped = true;
+    });
+    
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('coin_has_been_tapped', true);
+    
+    // Cancel shimmer timer
+    _shimmerTimer?.cancel();
+    
+    // Navigate to camera screen
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => CameraScreen()),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -54,16 +137,63 @@ class _HomeScreenState extends State<HomeScreen> {
                 left: 0,
                 right: 0,
                 child: GestureDetector(
-                  onTap: () {
-                    // Navigate to camera screen
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => CameraScreen()),
+                  onTap: _onCoinTapped,
+                  onLongPress: () async {
+                    // Debug: Reset shimmer (long press to re-enable shimmer)
+                    final prefs = await SharedPreferences.getInstance();
+                    await prefs.setBool('coin_has_been_tapped', false);
+                    setState(() {
+                      _hasBeenTapped = false;
+                    });
+                    _startShimmerTimer();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Shimmer effect reset!'),
+                        duration: Duration(seconds: 1),
+                      ),
                     );
                   },
-                  child: Image.asset(
-                    'assets/images/button/appButton.png',
-                    fit: BoxFit.contain,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      // The coin image
+                      Image.asset(
+                        'assets/images/button/appButton.png',
+                        fit: BoxFit.contain,
+                      ),
+                      // Shimmer overlay (only show if not tapped yet)
+                      if (!_hasBeenTapped)
+                        AnimatedBuilder(
+                          animation: _shimmerAnimation,
+                          builder: (context, child) {
+                            return ClipRRect(
+                              child: ShaderMask(
+                                shaderCallback: (bounds) {
+                                  return LinearGradient(
+                                    begin: Alignment.centerLeft,
+                                    end: Alignment.centerRight,
+                                    colors: const [
+                                      Colors.transparent,
+                                      Color(0xFFFFD966), // Gold shimmer
+                                      Colors.transparent,
+                                    ],
+                                    stops: [
+                                      _shimmerAnimation.value - 0.3,
+                                      _shimmerAnimation.value,
+                                      _shimmerAnimation.value + 0.3,
+                                    ],
+                                  ).createShader(bounds);
+                                },
+                                blendMode: BlendMode.srcATop,
+                                child: Image.asset(
+                                  'assets/images/button/appButton.png',
+                                  fit: BoxFit.contain,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                    ],
                   ),
                 ),
               ),
@@ -183,6 +313,53 @@ class _HomeScreenState extends State<HomeScreen> {
                     languageService.toggleLanguage();
                     // Don't close drawer when switching languages
                   },
+                );
+              },
+            ),
+          ),
+          // Image Storage setting
+          Container(
+            margin: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.06),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Color(0xFFFFD966).withOpacity(0.3)),
+            ),
+            child: FutureBuilder<bool>(
+              future: ImageStorageService.isImageStorageEnabled(),
+              builder: (context, snapshot) {
+                final isEnabled = snapshot.data ?? true;
+                return ListTile(
+                  leading: Icon(
+                    isEnabled ? Icons.photo_library : Icons.photo_library_outlined,
+                    color: Color(0xFFFFD966),
+                  ),
+                  title: Text(
+                    AppLocalizations.of(context)!.saveImagesLocally,
+                    style: TextStyle(color: Color(0xFFFFD966)),
+                  ),
+                  trailing: Switch(
+                    value: isEnabled,
+                    onChanged: (value) async {
+                      await ImageStorageService.setImageStorageEnabled(value);
+                      setState(() {}); // Rebuild to update the UI
+                      
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            value ? AppLocalizations.of(context)!.imageStorageEnabled : AppLocalizations.of(context)!.imageStorageDisabled,
+                            style: TextStyle(color: Colors.white),
+                          ),
+                          backgroundColor: Color(0xFFA5362D),
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    },
+                    activeColor: Color(0xFFFFD966),
+                    activeTrackColor: Color(0xFFFFD966).withOpacity(0.3),
+                    inactiveThumbColor: Colors.grey,
+                    inactiveTrackColor: Colors.grey.withOpacity(0.3),
+                  ),
                 );
               },
             ),

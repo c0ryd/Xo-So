@@ -989,10 +989,33 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(8),
-                  child: Image.file(
-                    File(_processedImagePath!),
-                    fit: BoxFit.contain,
-                    width: double.infinity,
+                  child: FutureBuilder<File?>(
+                    future: ImageStorageService.getTicketImage(_processedImagePath!),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return Container(
+                          height: 100,
+                          child: Center(
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        );
+                      }
+                      
+                      if (snapshot.hasData && snapshot.data != null) {
+                        return Image.file(
+                          snapshot.data!,
+                          fit: BoxFit.contain,
+                          width: double.infinity,
+                        );
+                      } else {
+                        return Container(
+                          height: 100,
+                          child: Center(
+                            child: Icon(Icons.image_not_supported, color: Colors.grey[600]),
+                          ),
+                        );
+                      }
+                    },
                   ),
                 ),
               ),
@@ -1250,17 +1273,40 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                             ),
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(6),
-                              child: Image.file(
-                                File(_processedImagePath!),
-                                fit: BoxFit.cover,
-                                width: double.infinity,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return Container(
-                                    color: Colors.grey[300],
-                                    child: Center(
-                                      child: Icon(Icons.error, color: Colors.red, size: 20),
-                                    ),
-                                  );
+                              child: FutureBuilder<File?>(
+                                future: ImageStorageService.getTicketImage(_processedImagePath!),
+                                builder: (context, snapshot) {
+                                  if (snapshot.connectionState == ConnectionState.waiting) {
+                                    return Container(
+                                      color: Colors.grey[300],
+                                      child: Center(
+                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                      ),
+                                    );
+                                  }
+                                  
+                                  if (snapshot.hasData && snapshot.data != null) {
+                                    return Image.file(
+                                      snapshot.data!,
+                                      fit: BoxFit.cover,
+                                      width: double.infinity,
+                                      errorBuilder: (context, error, stackTrace) {
+                                        return Container(
+                                          color: Colors.grey[300],
+                                          child: Center(
+                                            child: Icon(Icons.error, color: Colors.red, size: 20),
+                                          ),
+                                        );
+                                      },
+                                    );
+                                  } else {
+                                    return Container(
+                                      color: Colors.grey[300],
+                                      child: Center(
+                                        child: Icon(Icons.image_not_supported, color: Colors.grey[600], size: 20),
+                                      ),
+                                    );
+                                  }
                                 },
                               ),
                             ),
