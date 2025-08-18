@@ -467,9 +467,11 @@ class _CameraScreenState extends State<CameraScreen> {
   void _disposeBannerAd() {
     _bannerAd?.dispose();
     _bannerAd = null;
-    setState(() {
-      _isBannerAdReady = false;
-    });
+    if (mounted) {
+      setState(() {
+        _isBannerAdReady = false;
+      });
+    }
   }
 
   // --- OCR helpers copied from working screen ---
@@ -880,7 +882,7 @@ class _CameraScreenState extends State<CameraScreen> {
               SizedBox(height: 8),
             ],
 
-            if ((_isAutoScanning || _isCameraInitialized) && _isBannerAdReady && _bannerAd != null) ...[
+                          if ((_isAutoScanning || _isCameraInitialized) && _isBannerAdReady && _bannerAd != null) ...[
               Container(
                 alignment: Alignment.center,
                 width: _bannerAd!.size.width.toDouble(),
