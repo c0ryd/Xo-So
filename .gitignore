@@ -41,3 +41,36 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# iOS build artifacts
+/ios/build/
+/ios/Runner.xcarchive/
+/ios/Runner.xcworkspace/xcuserdata/
+/ios/Pods/
+/ios/.symlinks/
+/ios/Flutter/Flutter.framework
+/ios/Flutter/Flutter.podspec
+/ios/Flutter/Generated.xcconfig
+/ios/Flutter/ephemeral/
+/ios/Runner/GeneratedPluginRegistrant.*
+
+# macOS build artifacts
+/macos/build/
+/macos/Runner.xcarchive/
+/macos/Runner.xcworkspace/xcuserdata/
+/macos/Pods/
+/macos/.symlinks/
+/macos/Flutter/Flutter-Debug.xcconfig
+/macos/Flutter/Flutter-Release.xcconfig
+/macos/Flutter/GeneratedPluginRegistrant.swift
+
+# Windows build artifacts
+/windows/flutter/
+/windows/build/
+
+# Linux build artifacts
+/linux/flutter/
+/linux/build/
+
+# Web build artifacts
+/web/build/
