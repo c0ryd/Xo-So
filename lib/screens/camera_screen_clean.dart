@@ -15,6 +15,7 @@ import '../services/ticket_storage_service.dart';
 import '../services/image_storage_service.dart';
 import '../utils/image_preprocessing.dart';
 import '../utils/ocr_enhancements.dart';
+import '../utils/date_validator.dart';
 import '../services/ad_service.dart';
 import '../widgets/vietnamese_tiled_background.dart';
 import '../main.dart'; // For cameras list
@@ -718,8 +719,23 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
     for (final pattern in datePatterns) {
       final match = pattern.firstMatch(text);
       if (match != null) {
-        foundDate = match.group(1) ?? 'Not found';
-        break;
+        final potentialDate = match.group(1) ?? 'Not found';
+        
+        // Validate the date is within acceptable range (Today-60 to Today+2)
+        if (DateValidator.isValidLotteryDate(potentialDate)) {
+          foundDate = potentialDate;
+          print('✅ Valid lottery date found: $potentialDate');
+          break;
+        } else {
+          print('❌ Invalid lottery date rejected: $potentialDate (Valid range: ${DateValidator.getValidDateRange()})');
+          if (DateValidator.isTooOld(potentialDate)) {
+            print('   → Reason: Date is too old (>60 days ago)');
+          } else if (DateValidator.isTooFuture(potentialDate)) {
+            print('   → Reason: Date is too far in future (>2 days ahead)');
+          }
+          // Continue searching for a valid date
+          continue;
+        }
       }
     }
     
