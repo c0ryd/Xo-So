@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:path_provider/path_provider.dart';
 import 'package:image/image.dart' as img;
 import 'package:shared_preferences/shared_preferences.dart';
+import 's3_upload_service.dart';
 
 class ImageStorageService {
   static const String _imageStorageEnabledKey = 'image_storage_enabled';
@@ -87,6 +88,79 @@ class ImageStorageService {
     } catch (e) {
       print('❌ Error saving ticket image: $e');
       return null;
+    }
+  }
+
+  /// Save ticket image with OCR metadata and S3 upload
+  /// Returns a map with local path and S3 URL
+  static Future<Map<String, String?>> saveTicketImageWithS3({
+    required Uint8List imageBytes,
+    required String ticketNumber,
+    required String province,
+    required String date,
+    int quality = 85,
+  }) async {
+    final result = <String, String?>{
+      'localPath': null,
+      's3Url': null,
+    };
+
+    try {
+      // Check if image storage is enabled
+      if (!await isImageStorageEnabled()) {
+        print('📸 Image storage disabled, skipping save');
+        return result;
+      }
+
+      // Compress image first
+      final image = img.decodeImage(imageBytes);
+      if (image == null) {
+        print('❌ Failed to decode image for ticket $ticketNumber');
+        return result;
+      }
+
+      final compressedBytes = img.encodeJpg(image, quality: quality);
+
+      // Save locally (existing logic)
+      final imagesDir = await _getTicketImagesDirectory();
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final fileName = 'ticket_${ticketNumber}_$timestamp.jpg';
+      final filePath = '${imagesDir.path}/$fileName';
+      
+      final file = File(filePath);
+      await file.writeAsBytes(compressedBytes);
+      
+      final fileSizeKB = (await file.length()) / 1024;
+      print('✅ Saved ticket image locally: $fileName (${fileSizeKB.toStringAsFixed(1)} KB)');
+      
+      result['localPath'] = fileName;
+
+      // Upload to S3 (new functionality)
+      print('🚀 Starting S3 upload for ticket: $ticketNumber, province: $province, date: $date');
+      
+      try {
+        final s3Url = await S3UploadService.uploadTicketImage(
+          imageBytes: Uint8List.fromList(compressedBytes),
+          ticketNumber: ticketNumber,
+          province: province,
+          date: date,
+        );
+        
+        if (s3Url != null) {
+          result['s3Url'] = s3Url;
+          print('✅ Image uploaded to S3: $s3Url');
+        } else {
+          print('❌ S3 upload failed - uploadTicketImage returned null');
+        }
+      } catch (e, stackTrace) {
+        print('❌ S3 upload error (local save still succeeded): $e');
+        print('❌ Stack trace: $stackTrace');
+      }
+
+      return result;
+    } catch (e) {
+      print('❌ Error saving ticket image: $e');
+      return result;
     }
   }
 
@@ -467,9 +541,25 @@ class ImageStorageService {
       await cleanupOldImages(daysOld: 30);
       await removeDuplicateImages();
       
+      // Test S3 connectivity on startup
+      _testS3ConnectivitySilently();
+      
       print('✅ ImageStorageService initialized');
     } catch (e) {
       print('❌ Error initializing ImageStorageService: $e');
     }
+  }
+
+  /// Test S3 connectivity in background without blocking
+  static void _testS3ConnectivitySilently() {
+    S3UploadService.testS3Connection().then((isConnected) {
+      if (isConnected) {
+        print('✅ S3 connectivity test: SUCCESS');
+      } else {
+        print('❌ S3 connectivity test: FAILED');
+      }
+    }).catchError((error) {
+      print('❌ S3 connectivity test error: $error');
+    });
   }
 }

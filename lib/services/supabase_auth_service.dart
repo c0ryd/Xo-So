@@ -94,7 +94,7 @@ class SupabaseAuthService {
     try {
       await _supabase.auth.signInWithOAuth(
         OAuthProvider.google,
-        redirectTo: 'com.cdawson.xoso://login-callback',
+        redirectTo: 'com.cdawson.xoso.dev://login-callback',
         authScreenLaunchMode: LaunchMode.externalApplication,
       );
       // OAuth completes via deep link and authStateChanges

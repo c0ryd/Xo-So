@@ -2300,14 +2300,19 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
     try {
       // Save image permanently
       final tempImagePath = voted['imagePath'] ?? '';
+      
       if (tempImagePath.isNotEmpty) {
         final tempFile = File(tempImagePath);
         if (await tempFile.exists()) {
           final imageBytes = await tempFile.readAsBytes();
+          
+          // Save locally first (fast)
           savedImagePath = await ImageStorageService.saveTicketImage(
             imageBytes: imageBytes,
             ticketId: '${ticketResult}_${DateTime.now().millisecondsSinceEpoch}',
           );
+          
+          // S3 upload will be triggered after winner check is complete
           if (savedImagePath != null) {
             print('✅ Ticket image saved permanently: $savedImagePath');
             // Update the processed image path for the popup
@@ -2356,6 +2361,9 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
           // Store ticket ID for later duplication when user clicks action buttons
           print('💾 Stored ticket ID for potential duplication: $storedTicketId');
           print('🔢 Current total quantity selected: $_ticketQuantity');
+          
+          // Now upload to S3 in background (after all processing is complete)
+          _uploadToS3InBackground(voted, ticketResult, cityResult, dateResult);
         }
       } else {
         print('❌ No region found for province: $provinceForApi');
@@ -2369,6 +2377,42 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
         _winnerCheckError = 'Processing error: $e';
       });
     }
+  }
+
+  /// Upload image to S3 in background after all processing is complete
+  void _uploadToS3InBackground(
+    Map<String, dynamic> voted,
+    String ticketResult,
+    String cityResult,
+    String dateResult,
+  ) {
+    final tempImagePath = voted['imagePath'] ?? '';
+    if (tempImagePath.isEmpty) {
+      print('❌ S3: No image path available for upload');
+      return;
+    }
+
+    print('🚀 S3: Starting background upload after all processing complete');
+    print('🚀 S3: Ticket: $ticketResult, Province: $cityResult, Date: $dateResult');
+
+    // Upload to S3 in background (don't await it)
+    File(tempImagePath).readAsBytes().then((imageBytes) {
+      return ImageStorageService.saveTicketImageWithS3(
+        imageBytes: imageBytes,
+        ticketNumber: ticketResult,
+        province: cityResult,
+        date: dateResult,
+      );
+    }).then((saveResult) {
+      final s3Url = saveResult['s3Url'];
+      if (s3Url != null) {
+        print('✅ S3: Background upload successful: $s3Url');
+      } else {
+        print('❌ S3: Background upload failed - no URL returned');
+      }
+    }).catchError((error) {
+      print('❌ S3: Background upload error: $error');
+    });
   }
 
   /// Get the header text based on winner status
