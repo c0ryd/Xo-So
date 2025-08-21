@@ -5,6 +5,7 @@ import 'package:camera/camera.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:app_links/app_links.dart';
+import 'config/app_config.dart';
 import 'services/supabase_auth_service.dart';
 import 'services/notification_service.dart';
 import 'services/image_storage_service.dart';
@@ -14,6 +15,7 @@ import 'screens/home_screen.dart';
 import 'screens/supabase_login_screen.dart';
 import 'screens/todays_drawings_screen.dart';
 import 'screens/user_tickets_summary_screen.dart';
+import 'screens/debug_screen.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 late List<CameraDescription> cameras;
@@ -30,11 +32,17 @@ void main() async {
     DeviceOrientation.portraitDown,
   ]);
   
-  // Initialize Supabase
+  // Initialize Supabase with environment-specific configuration
+  // Print configuration on startup
+  print('🚀 STARTING XO SO APP');
+  AppConfig.printCurrentConfig();
+  
   await SupabaseAuthService.initialize(
-    url: 'https://bzugvwthyycszhohetlc.supabase.co',
-    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ6dWd2d3RoeXljc3pob2hldGxjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQzMDQyNTQsImV4cCI6MjA2OTg4MDI1NH0.CIluaTZ6sgEugrsftY6iCVyXXoqOFH-vUOi3Rh_vAfc',
+    url: AppConfig.supabaseUrl,
+    anonKey: AppConfig.supabaseAnonKey,
   );
+  
+  // Supabase initialized with current configuration
   
   // Initialize deep link handling for OAuth callbacks
   _initializeDeepLinkHandling();
@@ -128,6 +136,7 @@ class MyApp extends StatelessWidget {
           routes: {
             '/results': (context) => const TodaysDrawingsScreen(),
             '/my-tickets': (context) => const UserTicketsSummaryScreen(),
+            '/debug': (context) => const DebugScreen(),
           },
         );
       },

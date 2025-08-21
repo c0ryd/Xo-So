@@ -7,6 +7,7 @@ import 'dart:io';
 import 'dart:convert';
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:typed_data';
 import 'package:path_provider/path_provider.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:flutter/services.dart' show rootBundle;
@@ -18,8 +19,9 @@ import '../utils/ocr_enhancements.dart';
 import '../utils/date_validator.dart';
 import '../services/ad_service.dart';
 import '../widgets/vietnamese_tiled_background.dart';
+import '../config/app_config.dart';
 import '../main.dart'; // For cameras list
-import 'scan_results_screen.dart';
+import '../services/s3_upload_service.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:amazon_cognito_identity_dart_2/cognito.dart';
 import 'package:amazon_cognito_identity_dart_2/sig_v4.dart';
@@ -77,6 +79,19 @@ class LotteryTicketOverlayPainter extends CustomPainter {
 }
 
 class CameraScreen extends StatefulWidget {
+  final String? manualCity;
+  final String? manualDate;
+  final String? manualTicketNumber;
+  final bool isManualEntry;
+
+  const CameraScreen({
+    Key? key,
+    this.manualCity,
+    this.manualDate,
+    this.manualTicketNumber,
+    this.isManualEntry = false,
+  }) : super(key: key);
+
   @override
   _CameraScreenState createState() => _CameraScreenState();
 }
@@ -103,6 +118,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
   bool _isCheckingWinner = false;
   bool? _isWinner;
   int? _winAmount;
+  String? _prizeCategory; // Store the prize category (e.g., "G6", "DB", etc.)
   List<String>? _matchedTiers;
   String? _winnerCheckError;
   int _ticketQuantity = 1;
@@ -150,8 +166,31 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
     _loadProvinceSchedule();
     _createBannerAd(); // Create ad early for faster loading
     
-    // Initialize camera automatically when screen loads
-    _initializeCamera();
+    // Handle manual entry data if provided
+    if (widget.isManualEntry && 
+        widget.manualCity != null && 
+        widget.manualDate != null && 
+        widget.manualTicketNumber != null) {
+      // Set the manual data immediately
+      city = widget.manualCity!;
+      date = widget.manualDate!;
+      ticketNumber = widget.manualTicketNumber!;
+      rawText = 'Manual Entry: ${widget.manualTicketNumber}, ${widget.manualCity}, ${widget.manualDate}';
+      _showingResults = true;
+      
+      // Initialize camera but don't start auto-scanning for manual entry
+      _initializeCamera();
+      
+      // Start processing the manual entry data after camera is initialized
+      Future.delayed(Duration(milliseconds: 1000), () {
+        if (mounted) {
+          _processManualEntry();
+        }
+      });
+    } else {
+      // Initialize camera automatically when screen loads (normal mode)
+      _initializeCamera();
+    }
   }
 
   @override
@@ -271,12 +310,14 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
           _isCameraInitialized = true;
         });
         
-        // Start auto-scanning automatically after a short delay, but only if app is active
-        Future.delayed(Duration(milliseconds: 500), () {
-          if (mounted && _appLifecycleState == AppLifecycleState.resumed) {
-            _startAutoScanning();
-          }
-        });
+        // Start auto-scanning automatically after a short delay, but only if app is active and not manual entry
+        if (!widget.isManualEntry) {
+          Future.delayed(Duration(milliseconds: 500), () {
+            if (mounted && _appLifecycleState == AppLifecycleState.resumed) {
+              _startAutoScanning();
+            }
+          });
+        }
       } catch (e) {
         print('Error initializing camera: $e');
       }
@@ -304,6 +345,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
       _isCheckingWinner = false;
       _isWinner = null;
       _winAmount = null;
+      _prizeCategory = null;
       _matchedTiers = null;
       _winnerCheckError = null;
       _ticketQuantity = 1;
@@ -1516,39 +1558,66 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                         ),
                         SizedBox(height: 20),
                         
-                        // Win amount display (if winner)
+                        // Win amount display (if winner) - same width as verification box
                         if (_isWinner == true && _winAmount != null) ...[
                           Container(
                             padding: EdgeInsets.all(16),
                             margin: EdgeInsets.only(bottom: 16),
                             decoration: BoxDecoration(
-                              color: Colors.green[50],
+                              color: Colors.white.withOpacity(0.03),
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.green[300]!, width: 2),
+                              border: Border.all(color: Colors.green.shade400, width: 1.5),
                             ),
                             child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
-                                Icon(Icons.celebration, color: Colors.green[600], size: 32),
-                                SizedBox(height: 8),
-                                Text(
-                                  'You Won!',
-                                  style: TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.green[700],
-                                  ),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.celebration, color: Colors.green.shade400, size: 24),
+                                    SizedBox(width: 8),
+                                    Text(
+                                      Localizations.localeOf(context).languageCode == 'vi' ? 'TRÚNG GIẢI!' : 'WINNER!',
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.green.shade400,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                SizedBox(height: 4),
+                                SizedBox(height: 12),
+                                // Prize level display
+                                if (_prizeCategory != null) ...[
+                                  Container(
+                                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: Color(0xFFFFD966).withOpacity(0.2),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      _getPrizeDisplayName(_prizeCategory!),
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFFFFD966),
+                                      ),
+                                    ),
+                                  ),
+                                  SizedBox(height: 8),
+                                ],
+                                // Win amount
                                 Text(
                                   '${_winAmount.toString().replaceAllMapped(
                                     RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
                                     (Match m) => '${m[1]},',
                                   )} VND',
                                   style: TextStyle(
-                                    fontSize: 24,
+                                    fontSize: 20,
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.green[800],
+                                    color: Colors.white,
                                   ),
+                                  textAlign: TextAlign.center,
                                 ),
                               ],
                             ),
@@ -1624,7 +1693,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                                 ],
                               ),
                               SizedBox(height: 8),
-                              _buildSimpleField(AppLocalizations.of(context)!.ticketNumber, ticketNumber, Icons.confirmation_number),
+                              _buildSimpleFieldWithHighlight(AppLocalizations.of(context)!.ticketNumber, ticketNumber, Icons.confirmation_number),
                             ],
                           ),
                         ),
@@ -1898,68 +1967,74 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
         return;
       }
 
-      final region = TicketStorageService.getRegionForCity(province, _citiesData);
-      if (region == null) {
-        print('❌ Cannot determine region for city: $province');
+      // Require stored ticketId from DB storage
+      if (_storedTicketId == null) {
+        print('❌ Winner check aborted - no stored ticketId');
         setState(() {
           _isCheckingWinner = false;
-          _winnerCheckError = 'Cannot determine region';
+          _winnerCheckError = 'Ticket not stored yet (no ticketId)';
         });
         return;
       }
-      
       final payload = {
-        'ticket': ticketNumber,
-        'province': province,
-        'date': drawDate,
-        'region': region,
+        'ticketId': _storedTicketId,
       };
       
-      print('🎯 Checking winner with payload: $payload');
+      print('🎯 Checking winner with ticketId: $_storedTicketId');
       
-      // Get AWS credentials
-      final credentials = await TicketStorageService.getAwsCredentials();
-      
-      final apiGatewayUrl = 'https://u9maewv4ch.execute-api.ap-southeast-1.amazonaws.com/dev';
-      
-      final awsSigV4Client = AwsSigV4Client(
-        credentials.accessKeyId!,
-        credentials.secretAccessKey!,
-        apiGatewayUrl,
-        sessionToken: credentials.sessionToken!,
-        region: 'ap-southeast-1',
-      );
-      
-      final signedRequest = SigV4Request(
-        awsSigV4Client,
-        method: 'POST',
-        path: '/checkTicket',
-        headers: {'Content-Type': 'application/json'},
-        body: payload,
-      );
+      // Make direct API call (no authentication needed)
+      final apiPath = AppConfig.isProduction ? '/prod/checkTicket' : '/dev/checkTicket';
+      final apiUrl = '${AppConfig.apiGatewayBaseUrl}$apiPath';
       
       final response = await http.post(
-        Uri.parse(signedRequest.url!),
-        headers: signedRequest.headers?.cast<String, String>(),
-        body: signedRequest.body,
+        Uri.parse(apiUrl),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode(payload),
       );
       
       print('🎯 Winner check response: ${response.statusCode} - ${response.body}');
       
       if (response.statusCode == 200) {
         final responseData = json.decode(response.body);
-        
-        setState(() {
-          _isWinner = responseData['Winner'] as bool;
-          _winAmount = responseData['Sum'] as int?;
-          _matchedTiers = (responseData['MatchedTiers'] as List?)?.cast<String>();
-          _isCheckingWinner = false;
-        });
-        
-        if (_isWinner == true) {
-          print('🎉 WINNER! Amount: $_winAmount, Tiers: $_matchedTiers');
+        if (responseData['success'] == true) {
+          // Check if this is a pending response
+          final isPending = responseData['isPending'] as bool? ?? false;
+          
+          if (isPending) {
+            print('⏳ Ticket is pending - results not yet available');
+            setState(() {
+              _isWinner = null; // Use null to indicate pending
+              _winAmount = null;
+              _prizeCategory = null;
+              _matchedTiers = null;
+              _isCheckingWinner = false;
+              _winnerCheckError = responseData['message'] ?? 'Results not yet available';
+            });
+          } else {
+            // Normal winner/not winner response
+            final isWinner = (responseData['isWinner'] as bool?) ?? false;
+            final winAmount = (responseData['winAmount'] as num?)?.toInt();
+            final prizeCategory = responseData['prizeCategory'] as String?;
+            
+            setState(() {
+              _isWinner = isWinner;
+              _winAmount = winAmount;
+              _prizeCategory = prizeCategory;
+              _matchedTiers = prizeCategory != null ? [prizeCategory] : null;
+              _isCheckingWinner = false;
+            });
+            
+            if (isWinner) {
+              print('🎉 WINNER! Amount: $_winAmount, Prize: $prizeCategory');
+            } else {
+              print('❌ Not a winner');
+            }
+          }
         } else {
-          print('❌ Not a winner');
+          setState(() {
+            _isCheckingWinner = false;
+            _winnerCheckError = responseData['error']?.toString() ?? 'Unknown error';
+          });
         }
       } else {
         setState(() {
@@ -2031,7 +2106,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
               Icon(Icons.celebration, color: Color(0xFFFFD966), size: 30),
               SizedBox(width: 10),
               Text(
-                'Congratulations!',
+                Localizations.localeOf(context).languageCode == 'vi' ? 'Chúc Mừng!' : 'Congratulations!',
                 style: TextStyle(
                   color: Color(0xFFFFD966),
                   fontWeight: FontWeight.bold,
@@ -2044,7 +2119,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'Your ticket is a WINNER!',
+                Localizations.localeOf(context).languageCode == 'vi' ? 'Vé của bạn TRÚNG GIẢI!' : 'Your ticket is a WINNER!',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -2062,7 +2137,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                     border: Border.all(color: Colors.green, width: 2),
                   ),
                   child: Text(
-                    'Prize: ${winAmount.toString().replaceAllMapped(
+                    '${Localizations.localeOf(context).languageCode == 'vi' ? 'Giải thưởng: ' : 'Prize: '}${winAmount.toString().replaceAllMapped(
                       RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
                       (Match m) => '${m[1]},',
                     )} VND',
@@ -2078,7 +2153,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
               if (matchedTiers != null && matchedTiers.isNotEmpty) ...[
                 SizedBox(height: 15),
                 Text(
-                  'Matched: ${matchedTiers.join(', ')}',
+                  '${Localizations.localeOf(context).languageCode == 'vi' ? 'Trúng: ' : 'Matched: '}${matchedTiers.join(', ')}',
                   style: TextStyle(
                     fontSize: 14,
                     color: Colors.black87,
@@ -2160,6 +2235,214 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
+        ],
+      ),
+    );
+  }
+
+  /// Get localized prize display name from prize category
+  String _getPrizeDisplayName(String prizeCategory) {
+    final localizations = AppLocalizations.of(context);
+    if (localizations == null) {
+      return _getPrizeDisplayNameEnglish(prizeCategory);
+    }
+    
+    final isVietnamese = Localizations.localeOf(context).languageCode == 'vi';
+    return isVietnamese 
+        ? _getPrizeDisplayNameVietnamese(prizeCategory)
+        : _getPrizeDisplayNameEnglish(prizeCategory);
+  }
+
+  String _getPrizeDisplayNameEnglish(String prizeCategory) {
+    switch (prizeCategory.toUpperCase()) {
+      case 'DB':
+      case 'ĐB':
+        return 'Special Prize';
+      case 'G1':
+        return 'First Prize';
+      case 'G2':
+        return 'Second Prize';
+      case 'G3':
+        return 'Third Prize';
+      case 'G4':
+        return 'Fourth Prize';
+      case 'G5':
+        return 'Fifth Prize';
+      case 'G6':
+        return 'Sixth Prize';
+      case 'G7':
+        return 'Seventh Prize';
+      case 'G8':
+        return 'Eighth Prize';
+      case 'PHU_DB':
+        return 'Special Bonus';
+      case 'KK':
+        return 'Consolation Prize';
+      default:
+        return prizeCategory;
+    }
+  }
+
+  String _getPrizeDisplayNameVietnamese(String prizeCategory) {
+    switch (prizeCategory.toUpperCase()) {
+      case 'DB':
+      case 'ĐB':
+        return 'Giải Đặc Biệt';
+      case 'G1':
+        return 'Giải Nhất';
+      case 'G2':
+        return 'Giải Nhì';
+      case 'G3':
+        return 'Giải Ba';
+      case 'G4':
+        return 'Giải Tư';
+      case 'G5':
+        return 'Giải Năm';
+      case 'G6':
+        return 'Giải Sáu';
+      case 'G7':
+        return 'Giải Bảy';
+      case 'G8':
+        return 'Giải Tám';
+      case 'PHU_DB':
+        return 'Phụ Đặc Biệt';
+      case 'KK':
+        return 'Khuyến Khích';
+      default:
+        return prizeCategory;
+    }
+  }
+
+  /// Get number of matching digits based on prize category
+  int _getMatchingDigitsCount(String prizeCategory) {
+    switch (prizeCategory.toUpperCase()) {
+      case 'DB':
+      case 'ĐB':
+        return 6; // Full number match for Special Prize
+      case 'G1':
+      case 'G2':
+      case 'G3':
+      case 'G4':
+        return 5; // Last 5 digits
+      case 'G5':
+      case 'G6':
+        return 4; // Last 4 digits
+      case 'G7':
+        return 3; // Last 3 digits
+      case 'G8':
+        return 2; // Last 2 digits
+      case 'PHU_DB':
+        return 5; // Last 5 digits match (special bonus)
+      case 'KK':
+        return 6; // All digits but one different (Hamming distance 1)
+      default:
+        return 0;
+    }
+  }
+
+  /// Build highlighted ticket number with gold matching digits
+  Widget _buildHighlightedTicketNumber(String ticketNum) {
+    if (_isWinner != true || _prizeCategory == null || ticketNum == 'Not found') {
+      return Text(
+        ticketNum,
+        style: TextStyle(
+          fontSize: 13,
+          color: ticketNum != 'Not found' ? Colors.white : Colors.red.shade300,
+          fontWeight: FontWeight.bold,
+        ),
+        textAlign: TextAlign.center,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      );
+    }
+
+    final matchingDigits = _getMatchingDigitsCount(_prizeCategory!);
+    if (matchingDigits <= 0 || matchingDigits > ticketNum.length) {
+      return Text(
+        ticketNum,
+        style: TextStyle(
+          fontSize: 13,
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+        ),
+        textAlign: TextAlign.center,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      );
+    }
+
+    // Split the ticket number into non-matching and matching parts
+    final nonMatchingPart = ticketNum.substring(0, ticketNum.length - matchingDigits);
+    final matchingPart = ticketNum.substring(ticketNum.length - matchingDigits);
+
+    return RichText(
+      textAlign: TextAlign.center,
+      text: TextSpan(
+        children: [
+          if (nonMatchingPart.isNotEmpty)
+            TextSpan(
+              text: nonMatchingPart,
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          TextSpan(
+            text: matchingPart,
+            style: TextStyle(
+              fontSize: 13,
+              color: Color(0xFFFFD966), // Gold color for matching digits
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Build simple field for clean grid layout (modified for ticket number highlighting)
+  Widget _buildSimpleFieldWithHighlight(String label, String value, IconData icon) {
+    final isFound = value != 'Not found';
+    return Container(
+      padding: EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.02),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: Color(0xFFFFD966).withOpacity(0.2),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                color: Color(0xFFFFD966),
+                size: 16,
+              ),
+              SizedBox(width: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Color(0xFFFFD966).withOpacity(0.8),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              SizedBox(width: 4),
+              Icon(
+                isFound ? Icons.check_circle : Icons.cancel,
+                color: isFound ? Color(0xFFFFD966) : Colors.red.shade300,
+                size: 14,
+              ),
+            ],
+          ),
+          SizedBox(height: 4),
+          _buildHighlightedTicketNumber(value),
         ],
       ),
     );
@@ -2288,6 +2571,121 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
     );
   }
   
+  /// Process manual entry data (similar to background processing but for manual input)
+  Future<void> _processManualEntry() async {
+    try {
+      print('🎯 Processing manual entry data...');
+      
+      // For manual entry, we use the sample image from assets
+      String? savedImagePath;
+      
+      // Load and save the sample image
+      try {
+        final ByteData imageData = await rootBundle.load('assets/images/Sample Images/IMG_2308.jpg');
+        final Uint8List imageBytes = imageData.buffer.asUint8List();
+        
+        savedImagePath = await ImageStorageService.saveTicketImage(
+          imageBytes: imageBytes,
+          ticketId: '${ticketNumber}_${DateTime.now().millisecondsSinceEpoch}',
+        );
+        
+        if (savedImagePath != null) {
+          print('✅ Sample image saved for manual entry: $savedImagePath');
+          setState(() {
+            _processedImagePath = savedImagePath;
+          });
+        }
+      } catch (e) {
+        print('⚠️ Could not load sample image for manual entry: $e');
+        // Continue without image
+      }
+      
+      // Convert manual city to proper Vietnamese name for API/DB storage
+      final String provinceForApi = _getProvinceInVietnamese(city);
+      final String apiDate = TicketStorageService.convertDateToApiFormat(date);
+      final region = TicketStorageService.getRegionForCity(provinceForApi, _citiesData);
+      
+      if (region != null) {
+        print('📤 MANUAL ENTRY DB STORAGE: Storing ticket with imagePath: $savedImagePath');
+        print('=== MANUAL ENTRY DB STORAGE PAYLOAD ===');
+        print('ticketNumber: $ticketNumber');
+        print('province: $provinceForApi');
+        print('drawDate: $apiDate');
+        print('region: $region');
+        print('ocrRawText: $rawText');
+        print('imagePath: $savedImagePath');
+        print('========================');
+        
+        final storedTicketId = await TicketStorageService.storeTicket(
+          ticketNumber: ticketNumber,
+          province: provinceForApi,
+          drawDate: apiDate,
+          region: region,
+          ocrRawText: rawText,
+          imagePath: savedImagePath,
+        );
+        
+        print('🔄 MANUAL ENTRY DB STORAGE RESULT: ${storedTicketId != null ? "SUCCESS" : "FAILED"}');
+        
+        // Check for winners after successful storage
+        if (storedTicketId != null) {
+          // Store the ticket ID for duplication
+          _storedTicketId = storedTicketId;
+          
+          print('🎯 Checking for winners (manual entry)...');
+          await _checkTicketWinner(ticketNumber, provinceForApi, apiDate);
+          
+          print('💾 Stored ticket ID for potential duplication: $storedTicketId');
+          print('🔢 Current total quantity selected: $_ticketQuantity');
+          
+          // Upload sample image to S3 in background
+          _uploadManualEntryToS3(ticketNumber, city, date, savedImagePath);
+        }
+      } else {
+        print('❌ No region found for province: $provinceForApi');
+        setState(() {
+          _winnerCheckError = 'Cannot determine region for $provinceForApi';
+        });
+      }
+    } catch (e) {
+      print('❌ Error in manual entry processing: $e');
+      setState(() {
+        _winnerCheckError = 'Manual entry processing error: $e';
+      });
+    }
+  }
+
+  /// Upload sample image to S3 for manual entry
+  void _uploadManualEntryToS3(String ticketResult, String cityResult, String dateResult, String? localImagePath) {
+    if (localImagePath == null) {
+      print('🚀 S3: No image to upload for manual entry');
+      return;
+    }
+    
+    Future.delayed(Duration(milliseconds: 100), () async {
+      try {
+        print('🚀 S3: Starting manual entry upload after processing complete');
+        print('🚀 S3: Ticket: $ticketResult, Province: $cityResult, Date: $dateResult');
+        
+        final imageFile = File(localImagePath);
+        if (await imageFile.exists()) {
+          final imageBytes = await imageFile.readAsBytes();
+          print('✅ Saved ticket image locally: ${imageFile.path.split('/').last} (${(imageBytes.length / 1024).toStringAsFixed(1)} KB)');
+          
+          // Use S3UploadService for the upload
+          await S3UploadService.uploadTicketImage(
+            imageBytes: imageBytes,
+            ticketNumber: ticketResult,
+            province: cityResult,
+            date: dateResult,
+          );
+        }
+      } catch (e) {
+        print('❌ Manual entry S3 upload error: $e');
+      }
+    });
+  }
+
   /// Background processing after scan success (save image, store in DB, check winner)
   Future<void> _performBackgroundProcessing(
     Map<String, dynamic> voted,

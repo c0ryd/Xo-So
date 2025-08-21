@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -9,6 +10,7 @@ import '../services/language_service.dart';
 import '../services/image_storage_service.dart';
 import '../utils/responsive_text.dart';
 import 'camera_screen_clean.dart'; // Import the clean camera screen
+import 'manual_ticket_entry_screen.dart'; // Import manual entry screen
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -93,11 +95,22 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     // Cancel shimmer timer
     _shimmerTimer?.cancel();
     
-    // Navigate to camera screen
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => CameraScreen()),
-    );
+    // Check if manual mode is enabled (dev only)
+    final isManualMode = await _getManualModeEnabled();
+    
+    if (isManualMode && kDebugMode) {
+      // Navigate to manual entry screen
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => ManualTicketEntryScreen()),
+      );
+    } else {
+      // Navigate to camera screen
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => CameraScreen()),
+      );
+    }
   }
 
   @override
@@ -324,6 +337,56 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               },
             ),
           ),
+
+          // Manual mode toggle (dev only)
+          if (kDebugMode)
+            Container(
+              margin: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.06),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Color(0xFFFFD966).withOpacity(0.3)),
+              ),
+              child: FutureBuilder<bool>(
+                future: _getManualModeEnabled(),
+                builder: (context, snapshot) {
+                  final isEnabled = snapshot.data ?? false;
+                  return ListTile(
+                    leading: Icon(
+                      isEnabled ? Icons.edit : Icons.camera_alt,
+                      color: Color(0xFFFFD966),
+                    ),
+                    title: Text(
+                      'Manual Mode',
+                      style: TextStyle(color: Color(0xFFFFD966)),
+                    ),
+                    trailing: Switch(
+                      value: isEnabled,
+                      onChanged: (value) async {
+                        await _setManualModeEnabled(value);
+                        setState(() {}); // Rebuild to update the UI
+                        
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              value ? 'Manual mode enabled' : 'Manual mode disabled',
+                              style: TextStyle(color: Colors.white),
+                            ),
+                            backgroundColor: Color(0xFFA5362D),
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      },
+                      activeColor: Color(0xFFFFD966),
+                      activeTrackColor: Color(0xFFFFD966).withOpacity(0.3),
+                      inactiveThumbColor: Colors.grey,
+                      inactiveTrackColor: Colors.grey.withOpacity(0.3),
+                    ),
+                  );
+                },
+              ),
+            ),
+
           // Language toggle - simplified for now
           Container(
             margin: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -442,5 +505,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         ],
       ),
     );
+  }
+
+  Future<bool> _getManualModeEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('manual_mode_enabled') ?? false;
+  }
+
+  Future<void> _setManualModeEnabled(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('manual_mode_enabled', enabled);
   }
 }

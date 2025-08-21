@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Xo So Dev</string>
+	<string>Xo So</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -59,7 +59,7 @@
 			<string>com.cdawson.xoso.oauth</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>com.cdawson.xoso.dev</string>
+				<string>com.cdawson.xoso</string>
 			</array>
 		</dict>
 		<!-- Google Sign-In callback scheme (REVERSED_CLIENT_ID) -->
@@ -77,6 +77,14 @@
 	<array>
 		<string>https</string>
 		<string>http</string>
+	</array>
+	<!-- Export Compliance: Declare no encryption usage to bypass manual review -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<!-- Push Notifications: Enable background app refresh for remote notifications -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
 	</array>
 </dict>
 </plist>

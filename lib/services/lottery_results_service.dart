@@ -3,11 +3,14 @@ import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:amazon_cognito_identity_dart_2/cognito.dart';
 import 'package:amazon_cognito_identity_dart_2/sig_v4.dart';
+import '../config/app_config.dart';
+import '../utils/debug_logger.dart';
 
 class LotteryResultsService {
-  static const String _apiGatewayBaseUrl = 'https://u9maewv4ch.execute-api.ap-southeast-1.amazonaws.com';
-  static const String _identityPoolId = 'ap-southeast-1:9728af83-62a8-410f-a585-53de188a5079';
-  static const String _awsRegion = 'ap-southeast-1';
+  // Configuration now comes from AppConfig
+  static String get _apiGatewayBaseUrl => AppConfig.apiGatewayBaseUrl;
+  static String get _identityPoolId => AppConfig.cognitoIdentityPoolId;
+  static String get _awsRegion => AppConfig.awsRegion;
 
   /// Get lottery results from DynamoDB for a specific province and date
   static Future<Map<String, List<String>>?> getResults({
@@ -15,19 +18,11 @@ class LotteryResultsService {
     required DateTime date,
   }) async {
     try {
-      print('Fetching results for $province on ${_formatDateForApi(date)}');
-
-      // Get AWS credentials for authenticated API call
-      final credentials = await _getAwsCredentials();
-      
-      // Create signed request for API Gateway
-      final awsSigV4Client = AwsSigV4Client(
-        credentials.accessKeyId!,
-        credentials.secretAccessKey!,
-        _apiGatewayBaseUrl,
-        sessionToken: credentials.sessionToken,
-        region: _awsRegion,
-      );
+      DebugLogger.logUserAction('Fetch lottery results', data: {
+        'province': province,
+        'date': _formatDateForApi(date),
+        'isProduction': AppConfig.isProduction
+      });
 
       // Prepare the payload
       final payload = {
@@ -35,57 +30,102 @@ class LotteryResultsService {
         'date': _formatDateForApi(date),
       };
       
-      final signedRequest = SigV4Request(
-        awsSigV4Client,
-        method: 'POST',
-        path: '/dev/fetchResults',
-        headers: {'Content-Type': 'application/json'},
-        body: payload,
-      );
+      // Make direct API call without authentication (API Gateway allows it)
+      final apiPath = AppConfig.isProduction ? '/prod/fetchResults' : '/dev/fetchResults';
+      final apiUrl = '$_apiGatewayBaseUrl$apiPath';
       
-      print('🔍 Making authenticated request to: ${signedRequest.url}');
-      print('🔍 Payload: ${json.encode(payload)}');
-      print('🔍 Headers: ${signedRequest.headers}');
+      DebugLogger.logConfig('API Gateway Base URL', _apiGatewayBaseUrl);
+      DebugLogger.logConfig('API Path', apiPath);
+      DebugLogger.logConfig('Full API URL', apiUrl);
+      
+      DebugLogger.logAPI(apiUrl, payload, category: 'LOTTERY_RESULTS');
       
       final response = await http.post(
-        Uri.parse(signedRequest.url!),
-        headers: signedRequest.headers?.cast<String, String>(),
-        body: signedRequest.body,
+        Uri.parse(apiUrl),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode(payload),
       );
 
-      print('📡 Get results response: ${response.statusCode}');
-      print('📡 Response body: ${response.body}');
+      DebugLogger.logAPIResponse(apiUrl, response.statusCode, response.body, category: 'LOTTERY_RESULTS');
 
       if (response.statusCode == 200) {
         final responseData = json.decode(response.body);
+        
+        DebugLogger.logDatabaseOperation('Parse lottery results response', responseData);
         
         if (responseData['success'] == true && responseData['results'] != null) {
           // Convert the results to the expected format
           final resultsData = responseData['results'] as Map<String, dynamic>;
           final Map<String, List<String>> results = {};
           
+          DebugLogger.log('Raw results data structure: ${resultsData.keys.toList()}', category: 'LOTTERY_RESULTS');
+          
           resultsData.forEach((key, value) {
+            DebugLogger.log('Processing key: $key, value type: ${value.runtimeType}', category: 'LOTTERY_RESULTS');
             if (value is List) {
               results[key] = value.cast<String>();
             } else if (value is String) {
               results[key] = [value];
+            } else if (value is Map) {
+              // Handle nested structure like {"prizes": {"G1": [...], "G2": [...]}}
+              final nestedMap = value as Map<String, dynamic>;
+              nestedMap.forEach((nestedKey, nestedValue) {
+                if (nestedValue is List) {
+                  results[nestedKey] = nestedValue.cast<String>();
+                }
+              });
             }
           });
-          
-          print('✅ Results fetched successfully: ${results.keys}');
-          return results;
+
+          // Map raw keys (DB/G1..G8) to display keys expected by UI
+          String mapToDisplayKey(String key) {
+            final upper = key.toUpperCase();
+            switch (upper) {
+              case 'DB':
+              case 'ĐB':
+                return 'Special Prize';
+              case 'G1':
+                return 'First Prize';
+              case 'G2':
+                return 'Second Prize';
+              case 'G3':
+                return 'Third Prize';
+              case 'G4':
+                return 'Fourth Prize';
+              case 'G5':
+                return 'Fifth Prize';
+              case 'G6':
+                return 'Sixth Prize';
+              case 'G7':
+                return 'Seventh Prize';
+              case 'G8':
+                return 'Eighth Prize';
+              default:
+                return key; // Already in display form or unknown
+            }
+          }
+
+          final Map<String, List<String>> displayResults = {};
+          results.forEach((key, value) {
+            displayResults[mapToDisplayKey(key)] = value;
+          });
+
+          DebugLogger.logSuccess('Results mapped: ${displayResults.keys.toList()}', category: 'LOTTERY_RESULTS');
+          DebugLogger.log('Sample data - First: ${displayResults['First Prize']}, Special: ${displayResults['Special Prize']}', category: 'LOTTERY_RESULTS');
+          return displayResults;
         } else if (responseData['success'] == false) {
-          print('ℹ️ No results found for $province on ${_formatDateForApi(date)}');
+          DebugLogger.logWarning('No results found for $province on ${_formatDateForApi(date)}: ${responseData['message']}', category: 'LOTTERY_RESULTS');
           return null;
         }
       } else {
-        print('❌ API request failed: Status=${response.statusCode}, Response=${response.body}');
+        DebugLogger.logError('API request failed: Status=${response.statusCode}', category: 'LOTTERY_RESULTS');
+        return null;
       }
 
       return null;
 
-    } catch (e) {
-      print('❌ Error fetching results: $e');
+    } catch (e, stackTrace) {
+      DebugLogger.logError('Error fetching results: $e', category: 'LOTTERY_RESULTS', stackTrace: stackTrace);
       return null;
     }
   }

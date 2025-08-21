@@ -8,6 +8,7 @@ import 'package:amazon_cognito_identity_dart_2/cognito.dart';
 import 'package:amazon_cognito_identity_dart_2/sig_v4.dart';
 import '../widgets/vietnamese_tiled_background.dart';
 import '../services/image_storage_service.dart';
+import '../config/app_config.dart';
 
 class UserTicketsSummaryScreen extends StatefulWidget {
   const UserTicketsSummaryScreen({Key? key}) : super(key: key);
@@ -39,37 +40,13 @@ class _UserTicketsSummaryScreenState extends State<UserTicketsSummaryScreen> {
         throw Exception('User not authenticated');
       }
 
-      // Get AWS credentials
-      final credentials = await _getAwsCredentials();
-      if (credentials == null) {
-        throw Exception('Failed to get AWS credentials');
-      }
+      // Make direct API call (no authentication needed for API Gateway)
+      final apiPath = AppConfig.isProduction ? '/prod/getUserTickets/${user.id}' : '/dev/getUserTickets/${user.id}';
+      final apiUrl = '${AppConfig.apiGatewayBaseUrl}$apiPath';
 
-      // Create signed request
-      final apiUrl = 'https://u9maewv4ch.execute-api.ap-southeast-1.amazonaws.com/dev/getUserTickets';
-      final requestBody = jsonEncode({'userId': user.id});
-
-      final awsSigV4Client = AwsSigV4Client(
-        credentials.accessKeyId!,
-        credentials.secretAccessKey!,
-        apiUrl,
-        sessionToken: credentials.sessionToken!,
-        region: 'ap-southeast-1',
-      );
-      
-      // Create signed request using the AWS SDK (designed for API Gateway)
-      final signedRequest = SigV4Request(
-        awsSigV4Client,
-        method: 'POST',
-        path: '/getUserTickets',
+      final response = await http.get(
+        Uri.parse(apiUrl),
         headers: {'Content-Type': 'application/json'},
-        body: requestBody,
-      );
-
-      final response = await http.post(
-        Uri.parse('${apiUrl}'),
-        headers: Map<String, String>.from(signedRequest.headers ?? {}),
-        body: signedRequest.body,
       );
 
       if (response.statusCode == 200) {
@@ -77,18 +54,18 @@ class _UserTicketsSummaryScreenState extends State<UserTicketsSummaryScreen> {
         final tickets = (responseData['tickets'] as List).cast<Map<String, dynamic>>();
         
 
-        // Filter tickets to last 30 days
+        // Filter tickets to last 30 days based on draw date
         final now = DateTime.now();
         final thirtyDaysAgo = now.subtract(const Duration(days: 30));
         
         final recentTickets = tickets.where((ticket) {
-          final scannedAt = ticket['scannedAt'] as String?;
-          if (scannedAt != null) {
+          final drawDate = ticket['drawDate'] as String?;
+          if (drawDate != null) {
             try {
-              final scannedDate = DateTime.parse(scannedAt);
-              return scannedDate.isAfter(thirtyDaysAgo);
+              final drawDateTime = DateTime.parse(drawDate);
+              return drawDateTime.isAfter(thirtyDaysAgo);
             } catch (e) {
-              print('Error parsing date: $scannedAt');
+              print('Error parsing draw date: $drawDate');
               return false;
             }
           }
@@ -151,30 +128,7 @@ class _UserTicketsSummaryScreenState extends State<UserTicketsSummaryScreen> {
     }
   }
 
-  // Use the same AWS credentials approach as the main app
-  Future<CognitoCredentials?> _getAwsCredentials() async {
-    try {
-      // Use the same approach as main.dart - this is working
-      final identityPoolId = 'ap-southeast-1:9728af83-62a8-410f-a585-53de188a5079';
-      // Create a dummy user pool for unauthenticated access
-      final userPool = CognitoUserPool(
-        'ap-southeast-1_dummy12345', // Dummy user pool ID
-        'dummy1234567890abcdef1234567890' // Dummy client ID
-      );
-      
-      // Create Cognito credentials for unauthenticated access using Identity Pool
-      final credentials = CognitoCredentials(identityPoolId, userPool);
-      
-      // Get AWS credentials for unauthenticated access (pass null for unauthenticated)
-      await credentials.getAwsCredentials(null);
-      
-      print('✅ AWS credentials obtained successfully');
-      return credentials;
-    } catch (e) {
-      print('❌ Error getting AWS credentials: $e');
-      return null;
-    }
-  }
+  // Authentication no longer needed - using direct API calls
 
   @override
   Widget build(BuildContext context) {
@@ -366,7 +320,8 @@ class _UserTicketsSummaryScreenState extends State<UserTicketsSummaryScreen> {
     });
     
     // Check if any tickets are pending (not checked yet)
-    final hasPendingTickets = tickets.any((ticket) => !((ticket['hasBeenChecked'] as bool?) ?? false));
+    // Pending = no isWinner yet (backend sets isWinner true/false after check)
+    final hasPendingTickets = tickets.any((ticket) => ticket['isWinner'] == null);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -397,7 +352,7 @@ class _UserTicketsSummaryScreenState extends State<UserTicketsSummaryScreen> {
                       if (hasPendingTickets) ...[
                         TextSpan(text: ' - '),
                         TextSpan(
-                          text: 'Pending',
+                          text: Localizations.localeOf(context).languageCode == 'vi' ? 'Chờ kết quả' : 'Pending',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -494,11 +449,13 @@ class _UserTicketsSummaryScreenState extends State<UserTicketsSummaryScreen> {
 
   Widget _buildTicketCard(Map<String, dynamic> ticket, {int count = 1}) {
     final isWinner = (ticket['isWinner'] as bool?) ?? false;
-    final hasBeenChecked = (ticket['hasBeenChecked'] as bool?) ?? false;
+    // Consider ticket "checked" if backend has set isWinner or a checkedAt exists
+    final hasBeenChecked = ticket['isWinner'] != null || ticket['checkedAt'] != null;
     final drawDate = ticket['drawDate'] as String? ?? '';
     final ticketNumber = ticket['ticketNumber'] as String? ?? '';
     final winAmount = (ticket['winAmount'] is num) ? (ticket['winAmount'] as num).toInt() : 0;
     final matchedTiers = ticket['matchedTiers'] as List? ?? [];
+    final prizeCategory = ticket['prizeCategory'] as String? ?? '';
     final imagePath = ticket['imagePath'] as String? ?? '';
     
     // Determine border color, pill color, and text color based on status
@@ -536,10 +493,10 @@ class _UserTicketsSummaryScreenState extends State<UserTicketsSummaryScreen> {
         ? Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // "WINNER" centered at the top
+              // "WINNER" centered at the top (translated)
               Center(
                 child: Text(
-                  'WINNER',
+                  Localizations.localeOf(context).languageCode == 'vi' ? 'TRÚNG GIẢI' : 'WINNER',
                   style: TextStyle(
                     color: Colors.green[700],
                     fontSize: 18,
@@ -548,6 +505,27 @@ class _UserTicketsSummaryScreenState extends State<UserTicketsSummaryScreen> {
                 ),
               ),
               const SizedBox(height: 8),
+              // Prize tier display
+              if (prizeCategory.isNotEmpty) ...[
+                Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Color(0xFFFFD966).withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      _getPrizeDisplayName(prizeCategory),
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFFFFD966),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
               // Amount and pill on the same row
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -635,7 +613,7 @@ class _UserTicketsSummaryScreenState extends State<UserTicketsSummaryScreen> {
                       ],
                       // Ticket number (highlighted for winners)
                       Expanded(
-                        child: _buildHighlightedTicketNumber(ticketNumber, matchedTiers),
+                        child: _buildHighlightedTicketNumber(ticketNumber, prizeCategory),
                       ),
                     ],
                   );
@@ -719,7 +697,7 @@ class _UserTicketsSummaryScreenState extends State<UserTicketsSummaryScreen> {
                     ),
                     const SizedBox(height: 8),
                     // Always show ticket number for pending/not-winner (highlighted if applicable)
-                    _buildHighlightedTicketNumber(ticketNumber, matchedTiers),
+                    _buildHighlightedTicketNumber(ticketNumber, prizeCategory),
                   ],
                 ),
               ),
@@ -730,45 +708,46 @@ class _UserTicketsSummaryScreenState extends State<UserTicketsSummaryScreen> {
     );
   }
 
-  // Function to get the number of digits to highlight based on matched tiers
-  int _getHighlightDigits(List<dynamic> matchedTiers) {
-    if (matchedTiers.isEmpty) return 0;
+  // Function to get the number of digits to highlight based on prize category
+  int _getHighlightDigits(String prizeCategory) {
+    if (prizeCategory.isEmpty) return 0;
     
-    // Map tiers to number of digits they match (from the end)
-    const Map<String, int> tierDigits = {
-      'DB': 6,   // Special prize - all 6 digits
-      'G1': 5,   // Tier 1 - last 5 digits
-      'G2': 5,   // Tier 2 - last 5 digits  
-      'G3': 5,   // Tier 3 - last 5 digits
-      'G4': 5,   // Tier 4 - last 5 digits
-      'G5': 4,   // Tier 5 - last 4 digits
-      'G6': 4,   // Tier 6 - last 4 digits
-      'G7': 3,   // Tier 7 - last 3 digits
-      'G8': 2,   // Tier 8 - last 2 digits
-    };
-    
-    // Find the highest number of digits to highlight
-    int maxDigits = 0;
-    for (final tier in matchedTiers) {
-      final digits = tierDigits[tier.toString()] ?? 0;
-      if (digits > maxDigits) {
-        maxDigits = digits;
-      }
+    // Map prize categories to number of digits they match (from the end)
+    switch (prizeCategory.toUpperCase()) {
+      case 'DB':
+      case 'ĐB':
+        return 6; // Full number match for Special Prize
+      case 'G1':
+      case 'G2':
+      case 'G3':
+      case 'G4':
+        return 5; // Last 5 digits
+      case 'G5':
+      case 'G6':
+        return 4; // Last 4 digits
+      case 'G7':
+        return 3; // Last 3 digits
+      case 'G8':
+        return 2; // Last 2 digits
+      case 'PHU_DB':
+        return 5; // Last 5 digits match (special bonus)
+      case 'KK':
+        return 6; // All digits but one different (Hamming distance 1)
+      default:
+        return 0;
     }
-    
-    return maxDigits;
   }
 
   // Function to build highlighted ticket number
-  Widget _buildHighlightedTicketNumber(String ticketNumber, List<dynamic> matchedTiers) {
-    final highlightDigits = _getHighlightDigits(matchedTiers);
+  Widget _buildHighlightedTicketNumber(String ticketNumber, String prizeCategory) {
+    final highlightDigits = _getHighlightDigits(prizeCategory);
     
-    if (highlightDigits == 0 || matchedTiers.isEmpty) {
-      // No highlighting needed
+    if (highlightDigits == 0 || prizeCategory.isEmpty) {
+      // No highlighting needed - use white text for all tickets
       return Text(
         '#$ticketNumber',
         style: TextStyle(
-          color: Color(0xFFFFD966),
+          color: Colors.white,
           fontSize: 22,
           fontWeight: FontWeight.w900,
         ),
@@ -789,18 +768,23 @@ class _UserTicketsSummaryScreenState extends State<UserTicketsSummaryScreen> {
     return Text.rich(
       TextSpan(
         children: [
-          TextSpan(text: '#$normalPart'),
+          TextSpan(
+            text: '#$normalPart',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
           TextSpan(
             text: highlightPart,
             style: TextStyle(
-              color: Colors.green[700],
+              color: Color(0xFFFFD966), // Gold for matching digits
               fontWeight: FontWeight.w900,
             ),
           ),
         ],
       ),
       style: TextStyle(
-        color: Color(0xFFFFD966),
         fontSize: 22,
         fontWeight: FontWeight.w900,
       ),
@@ -832,6 +816,76 @@ class _UserTicketsSummaryScreenState extends State<UserTicketsSummaryScreen> {
         ],
       ),
     );
+  }
+
+  /// Get localized prize display name from prize category
+  String _getPrizeDisplayName(String prizeCategory) {
+    if (prizeCategory.isEmpty) return '';
+    
+    final isVietnamese = Localizations.localeOf(context).languageCode == 'vi';
+    return isVietnamese 
+        ? _getPrizeDisplayNameVietnamese(prizeCategory)
+        : _getPrizeDisplayNameEnglish(prizeCategory);
+  }
+
+  String _getPrizeDisplayNameEnglish(String prizeCategory) {
+    switch (prizeCategory.toUpperCase()) {
+      case 'DB':
+      case 'ĐB':
+        return 'Special Prize';
+      case 'G1':
+        return 'First Prize';
+      case 'G2':
+        return 'Second Prize';
+      case 'G3':
+        return 'Third Prize';
+      case 'G4':
+        return 'Fourth Prize';
+      case 'G5':
+        return 'Fifth Prize';
+      case 'G6':
+        return 'Sixth Prize';
+      case 'G7':
+        return 'Seventh Prize';
+      case 'G8':
+        return 'Eighth Prize';
+      case 'PHU_DB':
+        return 'Special Bonus';
+      case 'KK':
+        return 'Consolation Prize';
+      default:
+        return prizeCategory;
+    }
+  }
+
+  String _getPrizeDisplayNameVietnamese(String prizeCategory) {
+    switch (prizeCategory.toUpperCase()) {
+      case 'DB':
+      case 'ĐB':
+        return 'Giải Đặc Biệt';
+      case 'G1':
+        return 'Giải Nhất';
+      case 'G2':
+        return 'Giải Nhì';
+      case 'G3':
+        return 'Giải Ba';
+      case 'G4':
+        return 'Giải Tư';
+      case 'G5':
+        return 'Giải Năm';
+      case 'G6':
+        return 'Giải Sáu';
+      case 'G7':
+        return 'Giải Bảy';
+      case 'G8':
+        return 'Giải Tám';
+      case 'PHU_DB':
+        return 'Phụ Đặc Biệt';
+      case 'KK':
+        return 'Khuyến Khích';
+      default:
+        return prizeCategory;
+    }
   }
 
   String _formatDateDisplay(String dateString) {

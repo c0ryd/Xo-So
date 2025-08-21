@@ -3,12 +3,14 @@ import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:amazon_cognito_identity_dart_2/cognito.dart';
 import 'package:amazon_cognito_identity_dart_2/sig_v4.dart';
+import '../config/app_config.dart';
 import 'notification_service.dart';
 
 class TicketStorageService {
-  static const String _apiGatewayBaseUrl = 'https://u9maewv4ch.execute-api.ap-southeast-1.amazonaws.com';
-  static const String _identityPoolId = 'ap-southeast-1:9728af83-62a8-410f-a585-53de188a5079';
-  static const String _awsRegion = 'ap-southeast-1';
+  // Configuration now comes from AppConfig
+  static String get _apiGatewayBaseUrl => AppConfig.apiGatewayBaseUrl;
+  static String get _identityPoolId => AppConfig.cognitoIdentityPoolId;
+  static String get _awsRegion => AppConfig.awsRegion;
 
 
   /// Store a scanned ticket in AWS DynamoDB for processing after the drawing
@@ -50,36 +52,20 @@ class TicketStorageService {
 
       print('Storing ticket with payload: $payload');
 
-      // Get AWS credentials for authenticated API call
-      final credentials = await getAwsCredentials();
+      // Make direct API call (no authentication needed for API Gateway)
+      final apiPath = AppConfig.isProduction ? '/prod/storeTicket' : '/dev/storeTicket';
+      final apiUrl = '$_apiGatewayBaseUrl$apiPath';
       
-      // Create signed request for API Gateway
-      final awsSigV4Client = AwsSigV4Client(
-        credentials.accessKeyId!,
-        credentials.secretAccessKey!,
-        _apiGatewayBaseUrl,
-        sessionToken: credentials.sessionToken,
-        region: _awsRegion,
-      );
-      
-      final signedRequest = SigV4Request(
-        awsSigV4Client,
-        method: 'POST',
-        path: '/dev/storeTicket',
-        headers: {'Content-Type': 'application/json'},
-        body: payload,
-      );
-      
-      print('Making authenticated request to: ${signedRequest.url}');
+      print('Making direct request to: $apiUrl');
       
       final response = await http.post(
-        Uri.parse(signedRequest.url!),
-        headers: signedRequest.headers?.cast<String, String>(),
-        body: signedRequest.body,
+        Uri.parse(apiUrl),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode(payload),
       );
 
       print('Store ticket response: ${response.statusCode} - ${response.body}');
-      print('Request URL: ${signedRequest.url}');
+      print('Request URL: $apiUrl');
       print('Payload sent: ${json.encode(payload)}');
 
       if (response.statusCode == 200) {
@@ -101,7 +87,7 @@ class TicketStorageService {
       }
 
       print('❌ STORAGE FAILED: Status=${response.statusCode}, Response=${response.body}');
-      print('URL: ${signedRequest.url}');
+      print('URL: $apiUrl');
       return null;
 
     } catch (e) {
@@ -392,7 +378,7 @@ class TicketStorageService {
       final signedRequest = SigV4Request(
         awsSigV4Client,
         method: 'POST',
-        path: '/dev/storeTicket',
+        path: AppConfig.isProduction ? '/prod/storeTicket' : '/dev/storeTicket',
         headers: {'Content-Type': 'application/json'},
         body: payload,
       );
@@ -458,39 +444,22 @@ class TicketStorageService {
   /// Duplicate an existing ticket multiple times (preserves all status)
   static Future<bool> duplicateTicket(String ticketId, int quantity) async {
     try {
-      // Get AWS credentials
-      final credentials = await getAwsCredentials();
-      
-      // Create SigV4 client
-      final awsSigV4Client = AwsSigV4Client(
-        credentials.accessKeyId!,
-        credentials.secretAccessKey!,
-        _apiGatewayBaseUrl,
-        serviceName: 'execute-api',
-        sessionToken: credentials.sessionToken,
-        region: _awsRegion,
-      );
-      
       final payload = {
         'ticketId': ticketId,
         'quantity': quantity,
       };
       
-      final signedRequest = SigV4Request(
-        awsSigV4Client,
-        method: 'POST',
-        path: '/dev/duplicateTicket',
-        headers: {'Content-Type': 'application/json'},
-        body: payload,
-      );
+      // Make direct API call (no authentication needed)
+      final apiPath = AppConfig.isProduction ? '/prod/duplicateTicket' : '/dev/duplicateTicket';
+      final apiUrl = '$_apiGatewayBaseUrl$apiPath';
       
-      print('Making duplicate request to: ${signedRequest.url}');
+      print('Making duplicate request to: $apiUrl');
       print('Duplicating ticket $ticketId with quantity $quantity');
       
       final response = await http.post(
-        Uri.parse(signedRequest.url!),
-        headers: signedRequest.headers?.cast<String, String>(),
-        body: signedRequest.body,
+        Uri.parse(apiUrl),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode(payload),
       );
       
       print('Duplicate ticket response: ${response.statusCode} - ${response.body}');

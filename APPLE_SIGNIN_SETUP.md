@@ -1,24 +1,24 @@
-# 🍎 Apple Sign In Setup for Development Builds
-
-## 🚨 **Current Issue**
-Apple Sign In only works with registered App IDs. The development build (`com.cdawson.xoso.dev`) needs to be registered separately.
+# 🍎 Apple Sign In Setup for Development & Production
 
 ## 📋 **Apple Developer Console Setup**
 
-### **Step 1: Create Development App ID**
+### **Step 1: Configure Production App ID** 
 1. Go to [Apple Developer Console](https://developer.apple.com/account/)
 2. Navigate to **Certificates, Identifiers & Profiles** → **Identifiers**
-3. Click the **+** button to create a new identifier
-4. Select **App IDs** → **App**
+3. Find your existing App ID: `com.cdawson.xoso` (production)
+4. Edit it and ensure **Sign In with Apple** is enabled
 5. Configure:
+   - **Bundle ID**: `com.cdawson.xoso`
+   - **Description**: "Xo So - Lottery App"
+   - **Capabilities**: Enable "Sign In with Apple"
+
+### **Step 2: Create Development App ID**
+1. Click the **+** button to create a new identifier
+2. Select **App IDs** → **App**
+3. Configure:
    - **Bundle ID**: `com.cdawson.xoso.dev`
    - **Description**: "Xo So Development"
    - **Capabilities**: Enable "Sign In with Apple"
-
-### **Step 2: Configure Sign In with Apple**
-1. Find your existing App ID: `com.cdawson.xoso`
-2. Edit it and ensure **Sign In with Apple** is enabled
-3. Do the same for the new development App ID: `com.cdawson.xoso.dev`
 
 ### **Step 3: App-Specific Password (if needed)**
 1. Go to [appleid.apple.com](https://appleid.apple.com/)

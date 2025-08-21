@@ -4,12 +4,14 @@ import 'package:crypto/crypto.dart';
 import 'package:amazon_cognito_identity_dart_2/cognito.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../config/app_config.dart';
 
 /// S3 Upload Service for ticket images with structured naming
 class S3UploadService {
-  static const String _identityPoolId = 'ap-southeast-1:9728af83-62a8-410f-a585-53de188a5079';
-  static const String _awsRegion = 'ap-southeast-1';
-  static const String _s3BucketName = 'xoso-ticket-images';
+  // Configuration now comes from AppConfig
+  static String get _identityPoolId => AppConfig.cognitoIdentityPoolId;
+  static String get _awsRegion => AppConfig.awsRegion;
+  static String get _s3BucketName => AppConfig.s3BucketName;
   
   /// Upload ticket image to S3 with metadata in filename
   /// Returns S3 URL if successful, null if failed

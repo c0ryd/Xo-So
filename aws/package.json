@@ -1,0 +1,19 @@
+{
+  "name": "xoso-backend",
+  "version": "1.0.0",
+  "description": "Backend for Xo So Lottery App",
+  "scripts": {
+    "deploy:prod": "serverless deploy --config serverless-production.yml",
+    "remove:prod": "serverless remove --config serverless-production.yml",
+    "logs:prod": "serverless logs --config serverless-production.yml",
+    "info:prod": "serverless info --config serverless-production.yml",
+    "deploy:dev": "serverless deploy --config serverless-development.yml",
+    "remove:dev": "serverless remove --config serverless-development.yml",
+    "logs:dev": "serverless logs --config serverless-development.yml",
+    "info:dev": "serverless info --config serverless-development.yml"
+  },
+  "devDependencies": {
+    "serverless": "^3.39.0",
+    "serverless-python-requirements": "^6.1.0"
+  }
+}

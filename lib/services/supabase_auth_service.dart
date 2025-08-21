@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart' show LaunchMode;
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
+import '../config/app_config.dart';
 
 class SupabaseAuthService {
   final SupabaseClient _supabase = Supabase.instance.client;
@@ -94,7 +95,7 @@ class SupabaseAuthService {
     try {
       await _supabase.auth.signInWithOAuth(
         OAuthProvider.google,
-        redirectTo: 'com.cdawson.xoso.dev://login-callback',
+        redirectTo: AppConfig.googleOAuthRedirect,
         authScreenLaunchMode: LaunchMode.externalApplication,
       );
       // OAuth completes via deep link and authStateChanges

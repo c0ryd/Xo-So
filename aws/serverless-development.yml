@@ -1,0 +1,182 @@
+service: xoso
+
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: python3.11
+  region: ap-southeast-1
+  stage: dev
+  iam:
+    role: arn:aws:iam::911167902662:role/xoso-dev-lambda-execution-role
+  environment:
+    DYNAMODB_TICKETS_TABLE: ${self:service}-tickets-${opt:stage, self:provider.stage}
+    DYNAMODB_RESULTS_TABLE: ${self:service}-results-${opt:stage, self:provider.stage}
+    REGION: ${self:provider.region}
+    COGNITO_IDENTITY_POOL_ID: ap-southeast-1:9728af83-62a8-410f-a585-53de188a5079
+    SERVICE_NAME: ${self:service}
+    STAGE: ${opt:stage, self:provider.stage}
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - dynamodb:Query
+        - dynamodb:Scan
+        - dynamodb:GetItem
+        - dynamodb:PutItem
+        - dynamodb:UpdateItem
+        - dynamodb:DeleteItem
+      Resource: 
+        - "arn:aws:dynamodb:${opt:region, self:provider.region}:*:table/${self:provider.environment.DYNAMODB_TICKETS_TABLE}*"
+        - "arn:aws:dynamodb:${opt:region, self:provider.region}:*:table/${self:provider.environment.DYNAMODB_RESULTS_TABLE}*"
+    - Effect: Allow
+      Action:
+        - sns:Publish
+      Resource: "*"
+    - Effect: Allow
+      Action:
+        - lambda:InvokeFunction
+      Resource: 
+        - "arn:aws:lambda:${opt:region, self:provider.region}:*:function:${self:service}-${opt:stage, self:provider.stage}-*"
+
+functions:
+  storeTicket:
+    handler: functions/store_ticket.handler
+    description: Store lottery ticket for future processing
+    events:
+      - http:
+          path: storeTicket
+          method: post
+          cors: true
+
+  checkTicket:
+    handler: functions/check_ticket.handler
+    description: Check if a ticket is a winner
+    events:
+      - http:
+          path: checkTicket
+          method: post
+          cors: true
+
+  getUserTickets:
+    handler: functions/get_user_tickets.handler
+    description: Get user's ticket history
+    events:
+      - http:
+          path: getUserTickets/{userId}
+          method: get
+          cors: true
+
+  processWinners:
+    handler: functions/process_winners.handler
+    description: Process winners after lottery drawing
+    events:
+      - http:
+          path: processWinners
+          method: post
+          cors: true
+      - schedule:
+          rate: cron(15 9 * * ? *)  # 4:15 PM Vietnam time (UTC+7)
+          description: "Daily winner processing"
+
+  fetchResults:
+    handler: functions/fetch_results.handler
+    description: Fetch lottery results from DynamoDB
+    events:
+      - http:
+          path: fetchResults
+          method: post
+          cors: true
+
+  duplicateTicket:
+    handler: functions/duplicate_ticket.handler
+    description: Duplicate an existing ticket
+    events:
+      - http:
+          path: duplicateTicket
+          method: post
+          cors: true
+
+  fetchDailyResults:
+    handler: functions/fetch_daily_results.handler
+    description: On-demand lottery results fetching triggered by scans
+    timeout: 60  # Increased timeout for API calls
+    events:
+      - http:
+          path: fetchDailyResults
+          method: post
+          cors: true
+
+resources:
+  Resources:
+    TicketsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.DYNAMODB_TICKETS_TABLE}
+        AttributeDefinitions:
+          - AttributeName: ticketId
+            AttributeType: S
+          - AttributeName: userId
+            AttributeType: S
+          - AttributeName: drawDate
+            AttributeType: S
+          - AttributeName: province
+            AttributeType: S
+        KeySchema:
+          - AttributeName: ticketId
+            KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: UserIndex
+            KeySchema:
+              - AttributeName: userId
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+          - IndexName: DrawDateIndex
+            KeySchema:
+              - AttributeName: drawDate
+                KeyType: HASH
+              - AttributeName: province
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
+        BillingMode: PAY_PER_REQUEST
+
+    ResultsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.DYNAMODB_RESULTS_TABLE}
+        AttributeDefinitions:
+          - AttributeName: province
+            AttributeType: S
+          - AttributeName: date
+            AttributeType: S
+          - AttributeName: region
+            AttributeType: S
+        KeySchema:
+          - AttributeName: province
+            KeyType: HASH
+          - AttributeName: date
+            KeyType: RANGE
+        GlobalSecondaryIndexes:
+          - IndexName: RegionDateIndex
+            KeySchema:
+              - AttributeName: region
+                KeyType: HASH
+              - AttributeName: date
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
+          - IndexName: DateIndex
+            KeySchema:
+              - AttributeName: date
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+        BillingMode: PAY_PER_REQUEST
+
+plugins:
+  - serverless-python-requirements
+
+custom:
+  pythonRequirements:
+    dockerizePip: false

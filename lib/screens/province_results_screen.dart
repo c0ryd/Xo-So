@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../widgets/vietnamese_tiled_background.dart';
 import '../services/lottery_results_service.dart';
 import '../services/language_service.dart';
+import '../utils/debug_logger.dart';
 
 class ProvinceResultsScreen extends StatefulWidget {
   final String province;
@@ -39,20 +40,33 @@ class _ProvinceResultsScreenState extends State<ProvinceResultsScreen> {
     final isFuture = selectedDate.isAfter(now);
     final isPast = selectedDate.isBefore(DateTime(now.year, now.month, now.day));
     
+    DebugLogger.logUserAction('Loading province results', data: {
+      'province': widget.province,
+      'date': selectedDate.toIso8601String().substring(0, 10),
+      'isToday': isToday,
+      'isFuture': isFuture,
+      'isPast': isPast,
+      'hasResultsForToday': _hasResultsForToday(),
+    });
+    
     setState(() {
-      if (isFuture || (isToday && !_hasResultsForToday())) {
-        // Future dates or today before results are available
+      if (isFuture) {
         _status = ResultStatus.pending;
+        DebugLogger.log('Status set to PENDING (future date)', category: 'PROVINCE_RESULTS');
       } else {
         _status = ResultStatus.loading;
+        DebugLogger.log('Status set to LOADING (will fetch from API regardless of time)', category: 'PROVINCE_RESULTS');
       }
     });
 
-    if (!isFuture && (isPast || (isToday && _hasResultsForToday()))) {
-      // Try to fetch real results from the database
+    if (!isFuture) {
+      // Always attempt fetch for today/past; UI will decide pending vs notAvailable
+      DebugLogger.log('Attempting to fetch results from API...', category: 'PROVINCE_RESULTS');
       try {
+        final provinceForApi = _toVietnameseProvince(widget.province);
+        DebugLogger.log('Province normalized for API: $provinceForApi', category: 'PROVINCE_RESULTS');
         final results = await LotteryResultsService.getResults(
-          province: widget.province,
+          province: provinceForApi,
           date: selectedDate,
         );
         
@@ -77,6 +91,27 @@ class _ProvinceResultsScreenState extends State<ProvinceResultsScreen> {
         });
       }
     }
+  }
+
+  String _toVietnameseProvince(String name) {
+    // Minimal mapping for DB lookup
+    const mapping = {
+      'Hanoi': 'Hà Nội',
+      'Ho Chi Minh': 'Hồ Chí Minh',
+      'Da Nang': 'Đà Nẵng',
+      'Can Tho': 'Cần Thơ',
+      'Hai Phong': 'Hải Phòng',
+      'Tien Giang': 'Tiền Giang',
+      'Vinh Long': 'Vĩnh Long',
+      'Tra Vinh': 'Trà Vinh',
+      'Bac Lieu': 'Bạc Liêu',
+      'Kien Giang': 'Kiên Giang',
+      'Dong Thap': 'Đồng Tháp',
+      'Tay Ninh': 'Tây Ninh',
+      'Soc Trang': 'Sóc Trăng',
+      'Long An': 'Long An',
+    };
+    return mapping[name] ?? name;
   }
 
   bool _isSameDay(DateTime date1, DateTime date2) {

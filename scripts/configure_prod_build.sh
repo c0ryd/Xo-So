@@ -19,9 +19,8 @@ if [ -f "android/app/src/main/res/values/strings.xml" ]; then
     sed -i '' 's/<string name="app_name">Xo So Dev<\/string>/<string name="app_name">Xo So<\/string>/g' android/app/src/main/res/values/strings.xml
 fi
 
-# Revert Supabase redirect URL for production
-sed -i '' 's/com\.cdawson\.xoso\.dev:\/\/login-callback/com.cdawson.xoso:\/\/login-callback/g' lib/services/supabase_auth_service.dart
-sed -i '' 's/com\.cdawson\.xoso\.dev:\/\/login-callback/com.cdawson.xoso:\/\/login-callback/g' lib/main.dart
+# Note: OAuth redirects now handled automatically by AppConfig system
+echo "📋 OAuth redirects managed by AppConfig (automatic based on build mode)"
 
 # Revert Android manifest for deep links
 sed -i '' 's/android:scheme="com\.cdawson\.xoso\.dev"/android:scheme="com.cdawson.xoso"/g' android/app/src/main/AndroidManifest.xml

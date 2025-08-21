@@ -13,7 +13,7 @@ class NotificationService {
 
   static FlutterLocalNotificationsPlugin? _localNotifications;
   static String? _deviceToken;
-  static const MethodChannel _channel = MethodChannel('apns_channel');
+  static const MethodChannel _channel = MethodChannel('com.cdawson.xoso/notifications');
 
   static Future<void> initialize() async {
     _localNotifications = FlutterLocalNotificationsPlugin();
@@ -121,10 +121,16 @@ class NotificationService {
   /// Get device token (handles permissions and APNs registration)
   static Future<String?> _getDeviceToken() async {
     try {
+      print('📱 Requesting device token from native iOS...');
       final String? token = await _channel.invokeMethod('getDeviceToken');
+      if (token != null) {
+        print('✅ Received real device token from iOS: ${token.substring(0, 10)}...');
+      } else {
+        print('❌ iOS returned null device token');
+      }
       return token;
     } catch (e) {
-      print('❌ Error getting device token: $e');
+      print('❌ Error getting device token from iOS: $e');
       return null;
     }
   }
@@ -167,8 +173,29 @@ class NotificationService {
     }
   }
 
-  /// Generate a mock iOS APNs token (64 hexadecimal characters)
+  /// Generate a mock iOS APNs token (64 hexadecimal characters) that's consistent for the user
   static String _generateMockAPNsToken() {
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user != null) {
+        // Create a deterministic token based on user ID so it's consistent across app sessions
+        final userIdHash = user.id.hashCode.abs();
+        final hexChars = '0123456789abcdef';
+        final buffer = StringBuffer();
+        
+        // APNs tokens are exactly 64 hexadecimal characters
+        for (int i = 0; i < 64; i++) {
+          final index = (userIdHash + i * 17) % hexChars.length; // Use prime number for better distribution
+          buffer.write(hexChars[index]);
+        }
+        
+        return buffer.toString();
+      }
+    } catch (e) {
+      print('Error generating user-based token: $e');
+    }
+    
+    // Fallback to time-based if user not available
     final random = DateTime.now().millisecondsSinceEpoch;
     final hexChars = '0123456789abcdef';
     final buffer = StringBuffer();
