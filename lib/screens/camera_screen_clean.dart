@@ -9,7 +9,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:path_provider/path_provider.dart';
-import 'package:google_mobile_ads/google_mobile_ads.dart';
+// import 'package:google_mobile_ads/google_mobile_ads.dart'; // COMMENTED OUT - NOT THE ISSUE WE'RE DEBUGGING
 import 'package:flutter/services.dart' show rootBundle;
 
 import '../services/ticket_storage_service.dart';
@@ -17,7 +17,7 @@ import '../services/image_storage_service.dart';
 import '../utils/image_preprocessing.dart';
 import '../utils/ocr_enhancements.dart';
 import '../utils/date_validator.dart';
-import '../services/ad_service.dart';
+// import 'services/ad_service.dart'; // COMMENTED OUT - NOT THE ISSUE WE'RE DEBUGGING
 import '../widgets/vietnamese_tiled_background.dart';
 import '../config/app_config.dart';
 import '../main.dart'; // For cameras list
@@ -131,8 +131,8 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
   Timer? _autoScanTimer;
   
   // Banner ad state
-  BannerAd? _bannerAd;
-  bool _isBannerAdReady = false;
+  // BannerAd? // _bannerAd; // COMMENTED OUT - NOT THE ISSUE WE'RE DEBUGGING
+  // bool // _isBannerAdReady = false; // COMMENTED OUT - NOT THE ISSUE WE'RE DEBUGGING
   
   // View state to track if we're showing results
   bool _showingResults = false;
@@ -164,7 +164,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
     
     _loadCitiesData();
     _loadProvinceSchedule();
-    _createBannerAd(); // Create ad early for faster loading
+    // _createBannerAd(); // COMMENTED OUT // Create ad early for faster loading
     
     // Handle manual entry data if provided
     if (widget.isManualEntry && 
@@ -199,7 +199,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
     _focusIndicatorTimer?.cancel();
     _cameraController?.dispose();
     _textRecognizer.close();
-    _disposeBannerAd();
+    // _disposeBannerAd(); // COMMENTED OUT
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -360,7 +360,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
     });
     
     // Create banner ad when scanning starts
-    _createBannerAd();
+    // _createBannerAd(); // COMMENTED OUT
     
     print('=== AUTO-SCANNING STARTED (with result stacking) ===');
     _performAutoScan();
@@ -375,7 +375,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
     }
     
     // Dispose banner ad when scanning stops
-    _disposeBannerAd();
+    // _disposeBannerAd(); // COMMENTED OUT
     
     print('=== AUTO-SCANNING STOPPED ===');
   }
@@ -684,37 +684,37 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
     }
   }
 
-  // Ad methods
-  void _createBannerAd() {
-    _bannerAd = AdService.createBannerAd(
-      onAdLoaded: (ad) {
-        setState(() {
-          _isBannerAdReady = true;
-        });
-        print('Banner ad loaded successfully');
-      },
-      onAdFailedToLoad: (ad, error) {
-        print('Banner ad failed to load: $error');
-        ad.dispose();
-        setState(() {
-          _bannerAd = null;
-          _isBannerAdReady = false;
-        });
-      },
-    );
-    
-    _bannerAd?.load();
-  }
+  // Ad methods - COMMENTED OUT - NOT THE ISSUE WE'RE DEBUGGING
+  // void _createBannerAd() {
+  //   _bannerAd = AdService.createBannerAd(
+  //     onAdLoaded: (ad) {
+  //       setState(() {
+  //         _isBannerAdReady = true;
+  //       });
+  //       print('Banner ad loaded successfully');
+  //     },
+  //     onAdFailedToLoad: (ad, error) {
+  //       print('Banner ad failed to load: $error');
+  //       ad.dispose();
+  //       setState(() {
+  //         _bannerAd = null;
+  //         _isBannerAdReady = false;
+  //       });
+  //     },
+  //   );
+  //   
+  //   _bannerAd?.load();
+  // }
   
-  void _disposeBannerAd() {
-    _bannerAd?.dispose();
-    _bannerAd = null;
-    if (mounted) {
-      setState(() {
-        _isBannerAdReady = false;
-      });
-    }
-  }
+  //   // void _disposeBannerAd() { // COMMENTED OUT - NOT THE ISSUE WE'RE DEBUGGING
+  //   // _bannerAd?.dispose();
+  //   // _bannerAd = null;
+  //   if (mounted) {
+  //     setState(() {
+  //       // _isBannerAdReady = false;
+  //     });
+  //   }
+  // }
 
   // --- OCR helpers copied from working screen ---
   double _calculateConfidence(Map<String, dynamic> parsedInfo) {
@@ -1338,16 +1338,8 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
               ),
               SizedBox(height: 8),
             ],
-
-                          if ((_isAutoScanning || _isCameraInitialized) && _isBannerAdReady && _bannerAd != null && !_showingResults) ...[
-              Container(
-                alignment: Alignment.center,
-                width: _bannerAd!.size.width.toDouble(),
-                height: _bannerAd!.size.height.toDouble(),
-                child: AdWidget(ad: _bannerAd!),
-              ),
-              SizedBox(height: 16),
-            ],
+            // Google Ads widget was here - COMMENTED OUT - NOT THE ISSUE WE'RE DEBUGGING  
+            SizedBox(height: 16),
 
             if (_isCameraInitialized && _cameraController != null && !_showingResults) ...[
               Container(

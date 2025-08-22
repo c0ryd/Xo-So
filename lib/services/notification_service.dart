@@ -125,6 +125,8 @@ class NotificationService {
       final String? token = await _channel.invokeMethod('getDeviceToken');
       if (token != null) {
         print('✅ Received real device token from iOS: ${token.substring(0, 10)}...');
+        print('🔍 FULL DEVICE TOKEN: $token'); // Show full token for debugging
+        print('📏 Token length: ${token.length} characters');
       } else {
         print('❌ iOS returned null device token');
       }
@@ -229,6 +231,7 @@ class NotificationService {
       if (user == null) return;
 
       print('📡 Registering device token with AWS SNS backend...');
+      print('🔍 Registering FULL token: $token'); // Show full token for backend registration
       
       // Here you would call your AWS Lambda function to register the device
       // For now, we'll just log it
@@ -240,6 +243,15 @@ class NotificationService {
   }
 
   static String? get currentToken => _deviceToken;
+  
+  /// Get the full device token for debugging/testing
+  static String? get fullDeviceToken {
+    if (_deviceToken != null) {
+      print('🔍 CURRENT FULL DEVICE TOKEN: $_deviceToken');
+      print('📏 Token length: ${_deviceToken!.length} characters');
+    }
+    return _deviceToken;
+  }
 
   /// Register device for push notifications via AWS SNS
   static Future<bool> registerDevice() async {

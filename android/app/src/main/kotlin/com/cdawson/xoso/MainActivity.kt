@@ -1,4 +1,4 @@
-package com.example.xo_so
+package com.cdawson.xoso
 
 import io.flutter.embedding.android.FlutterActivity
 
