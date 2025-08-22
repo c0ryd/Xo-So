@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:google_mobile_ads/google_mobile_ads.dart';
+// import 'package:google_mobile_ads/google_mobile_ads.dart';  // TEMPORARILY COMMENTED OUT
 
 class AdService {
   static String get bannerAdUnitId {
@@ -15,9 +15,11 @@ class AdService {
   }
 
   static Future<void> initialize() async {
-    await MobileAds.instance.initialize();
+    // await MobileAds.instance.initialize();  // TEMPORARILY COMMENTED OUT
   }
 
+  // TEMPORARILY COMMENTED OUT - GOOGLE MOBILE ADS
+  /*
   static BannerAd createBannerAd({
     required Function(Ad) onAdLoaded,
     required Function(Ad, LoadAdError) onAdFailedToLoad,
@@ -35,4 +37,5 @@ class AdService {
       ),
     );
   }
+  */
 }
