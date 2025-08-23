@@ -110,6 +110,186 @@ def should_trigger_background_fetch(target_date):
         target_datetime = datetime.strptime(target_date, '%Y-%m-%d')
         return target_datetime.date() <= datetime.now().date()
 
+def fetch_lottery_results_from_api(province, date):
+    """
+    Fetch lottery results from the real Vietnamese lottery API (xoso188.net)
+    Returns: dict with prize data or None if not available
+    """
+    try:
+        import requests
+        
+        # Get the API code for the province
+        api_code = get_province_api_code(province)
+        if not api_code:
+            print(f"No API code found for province: {province}")
+            return None
+        
+        # Format date for finding the right result (convert YYYY-MM-DD to DD/MM/YYYY)
+        try:
+            date_parts = date.split('-')
+            if len(date_parts) == 3:
+                target_date = f"{date_parts[2]}/{date_parts[1]}/{date_parts[0]}"
+            else:
+                target_date = date
+        except:
+            target_date = date
+            
+        print(f"Calling xoso188.net API for province: {province} (code: {api_code}), target date: {target_date}")
+        
+        # Call the real Vietnamese lottery API
+        api_url = f"https://xoso188.net/api/front/open/lottery/history/list/5/{api_code}"
+        
+        response = requests.get(api_url, timeout=10)
+        if response.status_code == 200:
+            api_data = response.json()
+            
+            if not api_data.get('success'):
+                print(f"API returned unsuccessful response: {api_data}")
+                return None
+            
+            # Find the specific date in the issue list
+            issue_list = api_data.get('t', {}).get('issueList', [])
+            target_result = None
+            
+            for issue in issue_list:
+                if issue.get('turnNum') == target_date:
+                    target_result = issue
+                    break
+            
+            if not target_result:
+                print(f"No results found for date {target_date} in API response")
+                return None
+            
+            # Parse the API response into our expected format
+            prizes = parse_xoso188_result(target_result)
+            print(f"Successfully parsed lottery results for {province} on {target_date}")
+            return prizes
+            
+        else:
+            print(f"API returned status {response.status_code}")
+            return None
+        
+    except Exception as e:
+        print(f"Error calling xoso188.net API: {e}")
+        return None
+
+def get_province_api_code(province_name):
+    """
+    Map province name to API code used by xoso188.net
+    """
+    # Province name to API code mapping based on cities.csv
+    province_mapping = {
+        'An Giang': 'angi',
+        'Bạc Liêu': 'bali', 'Bac Lieu': 'bali',
+        'Bắc Ninh': 'bani', 'Bac Ninh': 'bani',
+        'Bến Tre': 'betr', 'Ben Tre': 'betr',
+        'Bình Định': 'bidi', 'Binh Dinh': 'bidi',
+        'Bình Dương': 'bidu', 'Binh Duong': 'bidu',
+        'Bình Phước': 'biph', 'Binh Phuoc': 'biph',
+        'Bình Thuận': 'bith', 'Binh Thuan': 'bith',
+        'Cà Mau': 'cama', 'Ca Mau': 'cama',
+        'Cần Thơ': 'cath', 'Can Tho': 'cath',
+        'Đà Lạt': 'dalat', 'Da Lat': 'dalat',
+        'Đà Nẵng': 'dana', 'Da Nang': 'dana',
+        'Đắk Lắk': 'dalak', 'Dak Lak': 'dalak',
+        'Đắk Nông': 'dano', 'Dak Nong': 'dano',
+        'Đồng Nai': 'dona', 'Dong Nai': 'dona',
+        'Đồng Tháp': 'doth', 'Dong Thap': 'doth',
+        'Gia Lai': 'gila',
+        'Hải Phòng': 'haph', 'Hai Phong': 'haph',
+        'Hà Nội': 'hano', 'Hanoi': 'hano',
+        'Hậu Giang': 'haug', 'Hau Giang': 'haug',
+        'TP.HCM': 'hcm', 'Ho Chi Minh': 'hcm',
+        'Huế': 'hue', 'Hue': 'hue',
+        'Khánh Hòa': 'kaha', 'Khanh Hoa': 'kaha',
+        'Kiên Giang': 'kigi', 'Kien Giang': 'kigi',
+        'Kon Tum': 'kotu',
+        'Long An': 'loan',
+        'Nam Định': 'nadi', 'Nam Dinh': 'nadi',
+        'Ninh Thuận': 'nith', 'Ninh Thuan': 'nith',
+        'Phú Yên': 'phye', 'Phu Yen': 'phye',
+        'Quảng Bình': 'qubi', 'Quang Binh': 'qubi',
+        'Quảng Nam': 'quna', 'Quang Nam': 'quna',
+        'Quảng Ngãi': 'qung', 'Quang Ngai': 'qung',
+        'Quảng Ninh': 'quni', 'Quang Ninh': 'quni',
+        'Quảng Trị': 'qutr', 'Quang Tri': 'qutr',
+        'Sóc Trăng': 'sotr', 'Soc Trang': 'sotr',
+        'Tây Ninh': 'tani', 'Tay Ninh': 'tani',
+        'Thái Bình': 'thbi', 'Thai Binh': 'thbi',
+        'Tiền Giang': 'tigi', 'Tien Giang': 'tigi',
+        'Trà Vinh': 'trvi', 'Tra Vinh': 'trvi',
+        'Vĩnh Long': 'vilo', 'Vinh Long': 'vilo',
+        'Vũng Tàu': 'vuta', 'Vung Tau': 'vuta'
+    }
+    
+    return province_mapping.get(province_name.strip())
+
+def parse_xoso188_result(issue_data):
+    """
+    Parse xoso188.net API result into our expected prize format
+    """
+    try:
+        import json
+        
+        # The detail field contains the prize information as a JSON string
+        detail_str = issue_data.get('detail', '[]')
+        detail_data = json.loads(detail_str)
+        
+        if len(detail_data) < 8:
+            print(f"Unexpected detail format: {detail_data}")
+            return None
+        
+        # Map the detail array to our prize structure
+        # Based on Vietnamese lottery structure:
+        # [0] = DB (Đặc Biệt)
+        # [1] = G1 (Giải Nhất) 
+        # [2] = G2 (Giải Nhì)
+        # [3] = G3 (Giải Ba)
+        # [4] = G4 (Giải Tư)
+        # [5] = G5 (Giải Năm)
+        # [6] = G6 (Giải Sáu)
+        # [7] = G7 (Giải Bảy)
+        
+        prizes = {}
+        
+        # Parse each prize tier
+        if detail_data[0]:  # DB (Special Prize)
+            prizes['DB'] = [detail_data[0]]
+            
+        if detail_data[1]:  # G1 (First Prize)
+            prizes['G1'] = [detail_data[1]]
+            
+        if detail_data[2]:  # G2 (Second Prize)
+            g2_numbers = detail_data[2].split(',') if isinstance(detail_data[2], str) else detail_data[2]
+            prizes['G2'] = [num.strip() for num in g2_numbers if num.strip()]
+            
+        if detail_data[3]:  # G3 (Third Prize)
+            g3_numbers = detail_data[3].split(',') if isinstance(detail_data[3], str) else detail_data[3]
+            prizes['G3'] = [num.strip() for num in g3_numbers if num.strip()]
+            
+        if detail_data[4]:  # G4 (Fourth Prize)
+            g4_numbers = detail_data[4].split(',') if isinstance(detail_data[4], str) else detail_data[4]
+            prizes['G4'] = [num.strip() for num in g4_numbers if num.strip()]
+            
+        if detail_data[5]:  # G5 (Fifth Prize)
+            g5_numbers = detail_data[5].split(',') if isinstance(detail_data[5], str) else detail_data[5]
+            prizes['G5'] = [num.strip() for num in g5_numbers if num.strip()]
+            
+        if detail_data[6]:  # G6 (Sixth Prize)
+            g6_numbers = detail_data[6].split(',') if isinstance(detail_data[6], str) else detail_data[6]
+            prizes['G6'] = [num.strip() for num in g6_numbers if num.strip()]
+            
+        if detail_data[7]:  # G7 (Seventh Prize)
+            g7_numbers = detail_data[7].split(',') if isinstance(detail_data[7], str) else detail_data[7]
+            prizes['G7'] = [num.strip() for num in g7_numbers if num.strip()]
+        
+        print(f"Parsed prizes: {prizes}")
+        return prizes
+        
+    except Exception as e:
+        print(f"Error parsing xoso188 result: {e}")
+        return None
+
 def check_vietnamese_lottery_winner(ticket_number, prize_data, region):
     """
     Check if ticket is a winner using Vietnamese lottery rules

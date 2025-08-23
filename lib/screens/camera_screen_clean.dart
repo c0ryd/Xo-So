@@ -9,7 +9,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:path_provider/path_provider.dart';
-// import 'package:google_mobile_ads/google_mobile_ads.dart'; // COMMENTED OUT - NOT THE ISSUE WE'RE DEBUGGING
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:flutter/services.dart' show rootBundle;
 
 import '../services/ticket_storage_service.dart';
@@ -17,7 +17,7 @@ import '../services/image_storage_service.dart';
 import '../utils/image_preprocessing.dart';
 import '../utils/ocr_enhancements.dart';
 import '../utils/date_validator.dart';
-// import 'services/ad_service.dart'; // COMMENTED OUT - NOT THE ISSUE WE'RE DEBUGGING
+import '../services/ad_service.dart';
 import '../widgets/vietnamese_tiled_background.dart';
 import '../config/app_config.dart';
 import '../main.dart'; // For cameras list
@@ -131,8 +131,8 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
   Timer? _autoScanTimer;
   
   // Banner ad state
-  // BannerAd? // _bannerAd; // COMMENTED OUT - NOT THE ISSUE WE'RE DEBUGGING
-  // bool // _isBannerAdReady = false; // COMMENTED OUT - NOT THE ISSUE WE'RE DEBUGGING
+  BannerAd? _bannerAd;
+  bool _isBannerAdReady = false;
   
   // View state to track if we're showing results
   bool _showingResults = false;
@@ -164,7 +164,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
     
     _loadCitiesData();
     _loadProvinceSchedule();
-    // _createBannerAd(); // COMMENTED OUT // Create ad early for faster loading
+    _createBannerAd(); // Create ad early for faster loading
     
     // Handle manual entry data if provided
     if (widget.isManualEntry && 
@@ -199,7 +199,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
     _focusIndicatorTimer?.cancel();
     _cameraController?.dispose();
     _textRecognizer.close();
-    // _disposeBannerAd(); // COMMENTED OUT
+    _disposeBannerAd();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -360,7 +360,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
     });
     
     // Create banner ad when scanning starts
-    // _createBannerAd(); // COMMENTED OUT
+    _createBannerAd();
     
     print('=== AUTO-SCANNING STARTED (with result stacking) ===');
     _performAutoScan();
@@ -375,7 +375,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
     }
     
     // Dispose banner ad when scanning stops
-    // _disposeBannerAd(); // COMMENTED OUT
+    _disposeBannerAd();
     
     print('=== AUTO-SCANNING STOPPED ===');
   }
@@ -684,37 +684,51 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
     }
   }
 
-  // Ad methods - COMMENTED OUT - NOT THE ISSUE WE'RE DEBUGGING
-  // void _createBannerAd() {
-  //   _bannerAd = AdService.createBannerAd(
-  //     onAdLoaded: (ad) {
-  //       setState(() {
-  //         _isBannerAdReady = true;
-  //       });
-  //       print('Banner ad loaded successfully');
-  //     },
-  //     onAdFailedToLoad: (ad, error) {
-  //       print('Banner ad failed to load: $error');
-  //       ad.dispose();
-  //       setState(() {
-  //         _bannerAd = null;
-  //         _isBannerAdReady = false;
-  //       });
-  //     },
-  //   );
-  //   
-  //   _bannerAd?.load();
-  // }
+  // Ad methods
+  void _createBannerAd() {
+    try {
+      _bannerAd = BannerAd(
+        adUnitId: AdService.bannerAdUnitId,
+        size: AdSize.banner,
+        request: const AdRequest(),
+        listener: BannerAdListener(
+          onAdLoaded: (ad) {
+            setState(() {
+              _isBannerAdReady = true;
+            });
+            print('Banner ad loaded successfully');
+          },
+          onAdFailedToLoad: (ad, error) {
+            print('Banner ad failed to load: $error');
+            ad.dispose();
+            setState(() {
+              _bannerAd = null;
+              _isBannerAdReady = false;
+            });
+          },
+          onAdOpened: (Ad ad) => print('BannerAd onAdOpened'),
+          onAdClosed: (Ad ad) => print('BannerAd onAdClosed'),
+          onAdImpression: (Ad ad) => print('BannerAd impression recorded'),
+        ),
+      );
+      
+      _bannerAd?.load();
+    } catch (e) {
+      print('Error creating banner ad: $e');
+      _bannerAd = null;
+      _isBannerAdReady = false;
+    }
+  }
   
-  //   // void _disposeBannerAd() { // COMMENTED OUT - NOT THE ISSUE WE'RE DEBUGGING
-  //   // _bannerAd?.dispose();
-  //   // _bannerAd = null;
-  //   if (mounted) {
-  //     setState(() {
-  //       // _isBannerAdReady = false;
-  //     });
-  //   }
-  // }
+  void _disposeBannerAd() {
+    _bannerAd?.dispose();
+    _bannerAd = null;
+    if (mounted) {
+      setState(() {
+        _isBannerAdReady = false;
+      });
+    }
+  }
 
   // --- OCR helpers copied from working screen ---
   double _calculateConfidence(Map<String, dynamic> parsedInfo) {
@@ -796,6 +810,21 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
       final matches = pattern.allMatches(text);
       if (matches.isNotEmpty) {
         foundTicketNumber = matches.first.group(1) ?? 'Not found';
+        
+        // 🔧 FIX: Ensure ticket numbers are properly padded to preserve leading zeros
+        // Vietnamese lottery tickets are typically 5-6 digits with leading zeros
+        if (foundTicketNumber != 'Not found' && foundTicketNumber.isNotEmpty) {
+          final length = foundTicketNumber.length;
+          if (length == 5) {
+            // Pad 5-digit numbers to 6 digits for consistency (015643 format)
+            foundTicketNumber = foundTicketNumber.padLeft(6, '0');
+            print('🔧 Padded 5-digit ticket number to 6 digits: $foundTicketNumber');
+          } else if (length >= 1 && length <= 4) {
+            // For very short numbers, pad to 6 digits (OCR might miss leading zeros)
+            foundTicketNumber = foundTicketNumber.padLeft(6, '0');
+            print('🔧 Padded short ticket number to 6 digits: $foundTicketNumber');
+          }
+        }
         break;
       }
     }
@@ -1338,8 +1367,15 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
               ),
               SizedBox(height: 8),
             ],
-            // Google Ads widget was here - COMMENTED OUT - NOT THE ISSUE WE'RE DEBUGGING  
-            SizedBox(height: 16),
+            if ((_isAutoScanning || _isCameraInitialized) && _isBannerAdReady && _bannerAd != null && !_showingResults) ...[
+              Container(
+                alignment: Alignment.center,
+                width: _bannerAd!.size.width.toDouble(),
+                height: _bannerAd!.size.height.toDouble(),
+                child: AdWidget(ad: _bannerAd!),
+              ),
+              SizedBox(height: 16),
+            ],
 
             if (_isCameraInitialized && _cameraController != null && !_showingResults) ...[
               Container(

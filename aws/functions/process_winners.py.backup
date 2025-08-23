@@ -168,20 +168,20 @@ def check_ticket_against_results(ticket_numbers, lottery_results):
 def fetch_and_store_lottery_results(results_table, date):
     """
     Fetch lottery results from external APIs and store in DynamoDB.
-    ONLY fetches for provinces that actually have drawings on the given date.
     Returns the number of province results fetched and stored.
     """
-    # Get only provinces that have drawings on this specific date
-    provinces_with_drawings = get_provinces_for_date(date)
+    # Vietnamese provinces that have daily lottery drawings
+    provinces = [
+        'Hà Nội', 'TP.HCM', 'Đồng Tháp', 'Cà Mau', 'Bến Tre', 'Vũng Tàu',
+        'Bạc Liêu', 'Đà Nẵng', 'Quảng Nam', 'Daklak', 'Quảng Ninh', 'Hải Phòng',
+        'Thừa Thiên Huế', 'An Giang', 'Bình Thuận', 'Tây Ninh', 'Bình Dương',
+        'Trà Vinh', 'Vinh Long', 'Vĩnh Long', 'Kiên Giang', 'Tiền Giang',
+        'Sóc Trăng', 'Cần Thơ', 'Đồng Nai', 'Long An', 'Hậu Giang'
+    ]
     
-    if not provinces_with_drawings:
-        print(f"No provinces have drawings on {date}")
-        return 0
-    
-    print(f"Fetching results for {len(provinces_with_drawings)} provinces with drawings on {date}")
     results_stored = 0
     
-    for province in provinces_with_drawings:
+    for province in provinces:
         try:
             # Check if we already have results for this province and date
             existing = results_table.get_item(
@@ -192,25 +192,14 @@ def fetch_and_store_lottery_results(results_table, date):
                 print(f"Results already exist for {province} on {date}")
                 continue
             
-            # Call our centralized lottery API Lambda function
-            real_results = call_centralized_lottery_api(province, date)
+            # Generate sample lottery results (in production, this would call real API)
+            results = generate_sample_lottery_results(province, date)
             
-            if real_results:
-                # Store REAL results in DynamoDB
-                results_table.put_item(
-                    Item={
-                        'province': province,
-                        'date': date,
-                        'region': get_region_from_province(province),
-                        'prizes': real_results,
-                        'createdAt': datetime.datetime.now().isoformat(),
-                        'source': 'real-api-cron-job'
-                    }
-                )
+            if results:
+                # Store in DynamoDB
+                results_table.put_item(Item=results)
                 results_stored += 1
-                print(f"✅ Stored REAL results for {province} on {date}")
-            else:
-                print(f"❌ No real results available for {province} on {date}")
+                print(f"Stored results for {province} on {date}")
             
         except Exception as e:
             print(f"Error fetching results for {province} on {date}: {e}")
@@ -218,92 +207,35 @@ def fetch_and_store_lottery_results(results_table, date):
     
     return results_stored
 
-def get_provinces_for_date(date):
+def generate_sample_lottery_results(province, date):
     """
-    Get provinces that have lottery drawings on the given date.
-    Only returns provinces that actually have drawings on that day of the week.
+    Generate sample lottery results. In production, this would fetch from real APIs.
+    Returns a DynamoDB item with lottery results.
     """
-    try:
-        from datetime import datetime
-        date_obj = datetime.strptime(date, '%Y-%m-%d')
-        day_name = date_obj.strftime('%A')  # Monday, Tuesday, etc.
-        
-        # Province schedule mapping (day of week -> list of provinces)
-        schedule = {
-            'Monday': ['TP.HCM', 'Đồng Tháp', 'Cà Mau'],
-            'Tuesday': ['Bạc Liêu', 'Vũng Tàu', 'Bến Tre'],
-            'Wednesday': ['Đà Nẵng', 'Quảng Nam', 'Đắk Lắk'],
-            'Thursday': ['TP.HCM', 'An Giang', 'Bình Thuận'],
-            'Friday': ['Vĩnh Long', 'Trà Vinh', 'Hậu Giang'],
-            'Saturday': ['TP.HCM', 'Đồng Nai', 'Cần Thơ', 'Sóc Trăng'],
-            'Sunday': ['Tiền Giang', 'Kiên Giang', 'Đà Lạt']
-        }
-        
-        # North region always has drawing on Tuesdays and Fridays
-        if day_name in ['Tuesday', 'Friday']:
-            schedule[day_name].extend(['Hà Nội', 'Quảng Ninh', 'Hải Phòng'])
-        
-        # Central region schedule varies
-        if day_name in ['Wednesday', 'Saturday']:
-            schedule[day_name].extend(['Thừa Thiên Huế', 'Quảng Bình'])
-        
-        return schedule.get(day_name, [])
-        
-    except Exception as e:
-        print(f"Error determining provinces for {date}: {e}")
-        return []
-
-def call_centralized_lottery_api(province, date):
-    """
-    Call our centralized lottery API Lambda function to get real results.
-    """
-    try:
-        import boto3
-        import json
-        import os
-        
-        lambda_client = boto3.client('lambda', region_name=os.environ.get('REGION', 'ap-southeast-1'))
-        
-        # Call our centralized fetch_lottery_api Lambda
-        function_name = f"{os.environ.get('SERVICE_NAME', 'xoso')}-{os.environ.get('STAGE', 'dev')}-fetchLotteryApi"
-        
-        payload = {
-            'province': province,
-            'date': date,
-            'source': 'cron-job'
-        }
-        
-        response = lambda_client.invoke(
-            FunctionName=function_name,
-            InvocationType='RequestResponse',
-            Payload=json.dumps(payload)
-        )
-        
-        response_payload = json.loads(response['Payload'].read().decode('utf-8'))
-        
-        if response_payload.get('statusCode') == 200:
-            body = json.loads(response_payload['body'])
-            if body.get('success'):
-                return body.get('data')
-        
-        print(f"Centralized API returned no data for {province} on {date}")
-        return None
-        
-    except Exception as e:
-        print(f"Error calling centralized lottery API for {province} on {date}: {e}")
-        return None
-
-def get_region_from_province(province):
-    """Map province to region (north/central/south)"""
-    north_provinces = ['Hà Nội', 'Hải Phòng', 'Nam Định', 'Quảng Ninh', 'Bắc Ninh', 'Thái Bình']
-    central_provinces = ['Đà Nẵng', 'Khánh Hòa', 'Phú Yên', 'Bình Định', 'Quảng Nam', 'Quảng Ngãi', 'Thừa Thiên Huế', 'Đắk Lắk', 'Nghệ An', 'Hà Tĩnh', 'Quảng Trị', 'Quảng Bình']
+    import random
     
-    if province in north_provinces:
-        return 'north'
-    elif province in central_provinces:
-        return 'central'
-    else:
-        return 'south'
+    # Generate realistic lottery numbers
+    def random_number(digits):
+        return str(random.randint(10**(digits-1), 10**digits - 1)).zfill(digits)
+    
+    # Vietnamese lottery structure
+    results = {
+        'province': province,
+        'date': date,
+        'region': 'vietnam',
+        'prizes': {
+            'DB': [random_number(5)],  # Special Prize
+            'G1': [random_number(5)],  # First Prize  
+            'G2': [random_number(5) for _ in range(2)],  # Second Prize
+            'G3': [random_number(5) for _ in range(6)],  # Third Prize
+            'G4': [random_number(4) for _ in range(4)],  # Fourth Prize
+            'G5': [random_number(4) for _ in range(6)],  # Fifth Prize
+            'G6': [random_number(3) for _ in range(3)],  # Sixth Prize
+            'G7': [random_number(2) for _ in range(4)]   # Seventh Prize
+        }
+    }
+    
+    return results
 
 def send_notification(ticket, is_winner, win_amount=0, prize_category=None):
     """

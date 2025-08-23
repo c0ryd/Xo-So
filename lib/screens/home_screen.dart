@@ -11,6 +11,7 @@ import '../services/image_storage_service.dart';
 import '../utils/responsive_text.dart';
 import 'camera_screen_clean.dart'; // Import the clean camera screen
 import 'manual_ticket_entry_screen.dart'; // Import manual entry screen
+import 'automated_test_screen.dart'; // Import automated test screen
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -382,6 +383,43 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       inactiveThumbColor: Colors.grey,
                       inactiveTrackColor: Colors.grey.withOpacity(0.3),
                     ),
+                  );
+                },
+              ),
+            ),
+
+          // Automated Testing (dev only)
+          if (kDebugMode)
+            Container(
+              margin: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.06),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Color(0xFFFFD966).withOpacity(0.3)),
+              ),
+              child: ListTile(
+                leading: Icon(
+                  Icons.bug_report,
+                  color: Color(0xFFFFD966),
+                ),
+                title: Text(
+                  'Automated Testing',
+                  style: TextStyle(color: Color(0xFFFFD966)),
+                ),
+                subtitle: Text(
+                  'Run test suite',
+                  style: TextStyle(color: Color(0xFFFFD966).withOpacity(0.7), fontSize: 12),
+                ),
+                trailing: Icon(
+                  Icons.arrow_forward_ios,
+                  color: Color(0xFFFFD966),
+                  size: 16,
+                ),
+                onTap: () {
+                  Navigator.pop(context); // Close drawer
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => AutomatedTestScreen()),
                   );
                 },
               ),

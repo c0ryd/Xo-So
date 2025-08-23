@@ -264,7 +264,7 @@ def fetch_lottery_results_from_api(province, date):
                 print(f"API returned unsuccessful response: {api_data}")
                 return None
             
-            # Find the specific date in the issue list
+            # Find the specific date in the issue list (REAL FIX: API structure is {"t": {"issueList": [...]}})
             issue_list = api_data.get('t', {}).get('issueList', [])
             target_result = None
             

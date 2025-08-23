@@ -1,6 +1,9 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
+import '../config/app_config.dart';
 import '../widgets/vietnamese_tiled_background.dart';
 import '../services/lottery_results_service.dart';
 import '../services/language_service.dart';
@@ -83,6 +86,10 @@ class _ProvinceResultsScreenState extends State<ProvinceResultsScreen> {
             print('ℹ️ Results not yet available for today');
           }
         });
+
+        // 🚀 NEW FEATURE: Auto-trigger data fetching and ticket processing
+        await _checkAndTriggerDataFetch(selectedDate, results == null || results.isEmpty);
+        
       } catch (e) {
         print('❌ Error loading results from database: $e');
         setState(() {
@@ -93,25 +100,163 @@ class _ProvinceResultsScreenState extends State<ProvinceResultsScreen> {
     }
   }
 
+  /// Check if we should trigger data fetching and ticket processing
+  Future<void> _checkAndTriggerDataFetch(DateTime selectedDate, bool noResultsFound) async {
+    final now = DateTime.now();
+    final vietnamNow = now.add(Duration(hours: 7)); // Vietnam is UTC+7
+    final daysDifference = now.difference(selectedDate).inDays;
+    
+    // Trigger conditions:
+    // 1. After 4pm VN time on current day
+    // 2. Within 30 days in the past
+    // 3. No results found in database
+    
+    final isAfter4PMToday = _isSameDay(selectedDate, now) && vietnamNow.hour >= 16;
+    final isWithin30Days = daysDifference >= 0 && daysDifference <= 30;
+    
+    if ((isAfter4PMToday || isWithin30Days) && noResultsFound) {
+      print('🚀 TRIGGER CONDITIONS MET: Initiating background data fetch and ticket processing');
+      print('   → Selected date: ${selectedDate.toIso8601String().substring(0, 10)}');
+      print('   → Days ago: $daysDifference');
+      print('   → Vietnam time: ${vietnamNow.hour}:${vietnamNow.minute}');
+      print('   → After 4PM today: $isAfter4PMToday');
+      print('   → Within 30 days: $isWithin30Days');
+      
+      try {
+        // Trigger data fetching for all provinces on selected date
+        await _triggerDataFetchAndProcessing(selectedDate);
+        
+        // After background processing, try to reload results for this province
+        await Future.delayed(Duration(seconds: 3)); // Give backend time to process
+        await _reloadResultsAfterFetch();
+        
+      } catch (e) {
+        print('⚠️ Background data fetch failed: $e');
+        // Don't show error to user - this is background processing
+      }
+    } else {
+      print('ℹ️ No background fetch needed:');
+      print('   → After 4PM today: $isAfter4PMToday, Within 30 days: $isWithin30Days, No results: $noResultsFound');
+    }
+  }
+
+  /// Trigger AWS Lambda to fetch data for all provinces on selected date and process tickets
+  Future<void> _triggerDataFetchAndProcessing(DateTime selectedDate) async {
+    final dateStr = '${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}';
+    
+    print('🔄 Triggering fetchDailyResults Lambda for date: $dateStr');
+    
+    // Call the fetchDailyResults endpoint which will:
+    // 1. Fetch results for ALL provinces that had drawings on this date
+    // 2. Populate the database
+    // 3. Process any unprocessed tickets
+    
+    final apiPath = AppConfig.isProduction ? '/prod/fetchDailyResults' : '/dev/fetchDailyResults';
+    final apiUrl = '${AppConfig.apiGatewayBaseUrl}$apiPath';
+    
+    final response = await http.post(
+      Uri.parse(apiUrl),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({
+        'date': dateStr,
+        'triggerSource': 'province_results_screen',
+        'requestedProvince': widget.province,
+      }),
+    );
+    
+    if (response.statusCode == 200) {
+      final responseData = json.decode(response.body);
+      print('✅ Background data fetch initiated successfully');
+      print('   → Response: ${responseData['message'] ?? 'Processing started'}');
+    } else {
+      print('❌ Background data fetch failed: ${response.statusCode} - ${response.body}');
+      throw Exception('Failed to trigger background data fetch');
+    }
+  }
+
+  /// Reload results after background fetch completes
+  Future<void> _reloadResultsAfterFetch() async {
+    print('🔄 Reloading results after background fetch...');
+    
+    try {
+      final provinceForApi = _toVietnameseProvince(widget.province);
+      final results = await LotteryResultsService.getResults(
+        province: provinceForApi,
+        date: widget.date,
+      );
+      
+      if (results != null && results.isNotEmpty) {
+        setState(() {
+          _status = ResultStatus.available;
+          _results = results;
+        });
+        print('🎉 Results now available after background fetch: ${results.length} prize categories');
+      } else {
+        print('ℹ️ Results still not available after background fetch - may need more time');
+      }
+    } catch (e) {
+      print('⚠️ Error reloading results after fetch: $e');
+    }
+  }
+
   String _toVietnameseProvince(String name) {
-    // Minimal mapping for DB lookup
+    // Complete mapping for DB lookup - MUST match database spelling exactly
     const mapping = {
+      // Northern provinces
       'Hanoi': 'Hà Nội',
-      'Ho Chi Minh': 'Hồ Chí Minh',
-      'Da Nang': 'Đà Nẵng',
-      'Can Tho': 'Cần Thơ',
+      'Ha Noi': 'Hà Nội',
       'Hai Phong': 'Hải Phòng',
-      'Tien Giang': 'Tiền Giang',
-      'Vinh Long': 'Vĩnh Long',
-      'Tra Vinh': 'Trà Vinh',
-      'Bac Lieu': 'Bạc Liêu',
-      'Kien Giang': 'Kiên Giang',
-      'Dong Thap': 'Đồng Tháp',
+      'Quang Ninh': 'Quảng Ninh',
+      'Bac Ninh': 'Bắc Ninh',
+      'Thai Binh': 'Thái Bình',
+      'Nam Dinh': 'Nam Định',
+      'Hai Duong': 'Hải Dương',
+      'Hung Yen': 'Hưng Yên',
+      'Vinh Phuc': 'Vĩnh Phúc',
+      
+      // Central provinces  
+      'Da Nang': 'Đà Nẵng',
+      'Quang Nam': 'Quảng Nam',
+      'Quang Tri': 'Quảng Trị',
+      'Thua Thien Hue': 'Thừa Thiên Huế',
+      'Quang Binh': 'Quảng Bình',
+      'Quang Ngai': 'Quảng Ngãi',
+      'Binh Dinh': 'Bình Định',
+      'Phu Yen': 'Phú Yên',
+      'Khanh Hoa': 'Khánh Hòa',
+      'Ninh Thuan': 'Ninh Thuận',
+      'Binh Thuan': 'Bình Thuận',
+      'Dak Lak': 'Đắk Lắk',
+      'Dak Nong': 'Đắk Nông',
+      'Lam Dong': 'Lâm Đồng',
+      'Gia Lai': 'Gia Lai',
+      'Kon Tum': 'Kon Tum',
+      
+      // Southern provinces
+      'Ho Chi Minh': 'Hồ Chí Minh',
+      'Binh Duong': 'Bình Dương',  // 🔧 THE MISSING MAPPING!
+      'Dong Nai': 'Đồng Nai',
+      'Ba Ria Vung Tau': 'Bà Rịa - Vũng Tàu',
       'Tay Ninh': 'Tây Ninh',
-      'Soc Trang': 'Sóc Trăng',
+      'Binh Phuoc': 'Bình Phước',
       'Long An': 'Long An',
+      'Tien Giang': 'Tiền Giang',
+      'Ben Tre': 'Bến Tre',
+      'Tra Vinh': 'Trà Vinh',
+      'Vinh Long': 'Vĩnh Long',
+      'Dong Thap': 'Đồng Tháp',
+      'An Giang': 'An Giang',
+      'Kien Giang': 'Kiên Giang',
+      'Can Tho': 'Cần Thơ',
+      'Hau Giang': 'Hậu Giang',
+      'Soc Trang': 'Sóc Trăng',
+      'Bac Lieu': 'Bạc Liêu',
+      'Ca Mau': 'Cà Mau',
     };
-    return mapping[name] ?? name;
+    
+    final mapped = mapping[name] ?? name;
+    print('🔄 Province mapping: "$name" -> "$mapped"');
+    return mapped;
   }
 
   bool _isSameDay(DateTime date1, DateTime date2) {

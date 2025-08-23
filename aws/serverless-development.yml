@@ -106,6 +106,12 @@ functions:
           method: post
           cors: true
 
+  fetchLotteryApi:
+    handler: functions/fetch_lottery_api.handler
+    description: Centralized external lottery API calls (xoso188.net)
+    timeout: 30  # External API calls should be faster
+    # No HTTP events - this is an internal service called by other Lambdas
+
 resources:
   Resources:
     TicketsTable:
